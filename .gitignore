@@ -1,0 +1,19 @@
+# Python
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/voice_emotion.db
+backend/tmp/audio/
+*.egg-info/
+
+# Node
+frontend/node_modules/
+frontend/.next/
+
+# Env — never commit secrets
+backend/.env
+frontend/.env.local
+
+# OS
+.DS_Store
