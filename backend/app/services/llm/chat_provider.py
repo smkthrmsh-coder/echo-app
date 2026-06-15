@@ -1,6 +1,7 @@
 """
 Chat reply generator — produces short spoken replies for conversation mode.
 Supports emotional mode: SSML pauses, lower stability, higher expressiveness.
+Voice continuity: locked_voice_id/name pins the same voice for the entire conversation.
 """
 
 import json
@@ -15,7 +16,6 @@ from app.services.llm.voice_profiles import get_voice_for_tone
 
 logger = get_logger(__name__)
 
-# Tone → ambient sound category mapping for correlated background music
 TONE_AMBIENCE: dict[str, str] = {
     "energetic": "driving rhythmic pulse, electronic energy, momentum",
     "calm": "gentle rainfall, soft piano, peaceful ambient drone",
@@ -66,26 +66,23 @@ def _extract_json(text: str) -> dict:
     return json.loads(text.strip())
 
 
+def _clean_script(text: str) -> str:
+    """Strip markdown — scripts must be clean spoken text."""
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    text = re.sub(r'\*(.+?)\*', r'\1', text)
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r'`([^`]+)`', r'\1', text)
+    text = re.sub(r'^[-*•]\s+', '', text, flags=re.MULTILINE)
+    return text.strip()
+
+
 def _apply_emotional_markup(script: str) -> str:
-    """
-    Inject ElevenLabs SSML break tags for a more human-like delivery.
-    Adds leading pause, sentence pauses, and em-dash pauses.
-    """
-    # Opening breath
+    """Inject ElevenLabs SSML break tags for natural delivery. Applied to TTS only."""
     marked = "<break time='0.8s'/> " + script
-
-    # Pause after each sentence
     marked = re.sub(r"\. +", ". <break time='0.5s'/> ", marked)
-
-    # Shorter pause after commas
     marked = re.sub(r", +", ", <break time='0.2s'/> ", marked)
-
-    # Breath around em-dashes
     marked = re.sub(r" — ", " <break time='0.4s'/> — <break time='0.2s'/> ", marked)
-
-    # Pause after ellipsis
     marked = re.sub(r"\.\.\. +", "... <break time='0.6s'/> ", marked)
-
     return marked
 
 
@@ -103,6 +100,8 @@ class ChatProvider:
         gender: str,
         energy_level: int,
         emotional_mode: bool = False,
+        locked_voice_id: str | None = None,
+        locked_voice_name: str | None = None,
     ) -> EmotionProfile:
         style_str = ", ".join(speaking_styles) if speaking_styles else "warm and present"
         energy_desc = ["very gentle", "gentle", "balanced", "energetic", "very energetic"][energy_level - 1]
@@ -132,17 +131,15 @@ class ChatProvider:
         except ValueError:
             tone = EmotionalTone.COMFORTING
 
+        # Voice selection — always run to get voice settings, but override ID/name if locked
         persona_id = speaking_styles[0] if speaking_styles else None
         voice = get_voice_for_tone(tone.value, gender, persona_id=persona_id)
 
-        # Emotional mode: crank expressiveness, lower stability for natural variation
+        effective_voice_id = locked_voice_id if locked_voice_id else voice.voice_id
+        effective_voice_name = locked_voice_name if locked_voice_name else voice.name
+
         if emotional_mode:
-            vs = VoiceSettings(
-                stability=0.20,
-                similarity_boost=0.85,
-                style=0.90,
-                use_speaker_boost=True,
-            )
+            vs = VoiceSettings(stability=0.20, similarity_boost=0.85, style=0.90, use_speaker_boost=True)
         else:
             vs = VoiceSettings(
                 stability=voice.default_stability,
@@ -151,27 +148,23 @@ class ChatProvider:
                 use_speaker_boost=True,
             )
 
-        script = data.get("script", "I'm here with you.")
-        if emotional_mode:
-            script = _apply_emotional_markup(script)
+        clean = _clean_script(data.get("script", "I'm here with you."))
+        # SSML markup is applied to script for TTS delivery only
+        tts_script = _apply_emotional_markup(clean) if emotional_mode else clean
 
-        # Ambience prompt correlated to tone
-        ambience_prompt = TONE_AMBIENCE.get(
-            tone.value,
-            "soft ambient background, warm and subtle",
-        )
+        ambience_prompt = TONE_AMBIENCE.get(tone.value, "soft ambient background, warm and subtle")
 
         return EmotionProfile(
             tone=tone,
             narration_style=NarrationStyle.FRIEND,
             pacing=Pacing.SLOW if emotional_mode else Pacing.MEDIUM,
             experience_title="",
-            voice_id=voice.voice_id,
-            voice_name=voice.name,
+            voice_id=effective_voice_id,
+            voice_name=effective_voice_name,
             voice_settings=vs,
             ambience_prompt=ambience_prompt,
-            ambience_volume_db=-14.0,  # audible background music under voice
+            ambience_volume_db=-14.0,
             music_category=tone.value,
-            script=script,
+            script=tts_script,
             reasoning="",
         )

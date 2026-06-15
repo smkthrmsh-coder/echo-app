@@ -62,6 +62,16 @@ def _extract_json(text: str) -> dict:
     return json.loads(text.strip())
 
 
+def _clean_script(text: str) -> str:
+    """Strip markdown formatting — scripts must be clean spoken text."""
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    text = re.sub(r'\*(.+?)\*', r'\1', text)
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r'`([^`]+)`', r'\1', text)
+    text = re.sub(r'^[-*•]\s+', '', text, flags=re.MULTILINE)
+    return text.strip()
+
+
 class AnthropicProvider(LLMProvider):
     def __init__(self) -> None:
         settings = get_settings()
@@ -136,6 +146,6 @@ class AnthropicProvider(LLMProvider):
             ambience_prompt=data.get("ambience_prompt", "soft ambient background"),
             ambience_volume_db=ambience_vol,
             music_category=data.get("music_category", "ambient"),
-            script=data.get("script", ""),
+            script=_clean_script(data.get("script", "")),
             reasoning=data.get("reasoning", ""),
         )

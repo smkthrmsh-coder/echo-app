@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import date
 from pathlib import Path
 
@@ -23,6 +24,16 @@ from app.services.emotion.pipeline import run_pipeline
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+
+def _clean_for_display(text: str) -> str:
+    """Strip SSML break tags and markdown from script before storing for display."""
+    text = re.sub(r"<break\s+[^>]*/?>", "", text)
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    text = re.sub(r'\*(.+?)\*', r'\1', text)
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r'`([^`]+)`', r'\1', text)
+    return text.strip()
 
 
 def _msg_to_out(msg: Message) -> MessageOut:
@@ -93,6 +104,8 @@ async def create_conversation(
         energy_level=request.energy_level,
         persona_id=request.persona_id,
         emotion=request.emotion,
+        voice_id=profile.voice_id,
+        voice_name=profile.voice_name,
     )
     db.add(conv)
     db.flush()
@@ -100,7 +113,7 @@ async def create_conversation(
     db.add(Message(conversation_id=conv.id, role="user", content=request.initial_prompt, voice_name="", tone=""))
     db.add(Message(
         conversation_id=conv.id, role="assistant",
-        content=profile.script, audio_path=audio_path,
+        content=_clean_for_display(profile.script), audio_path=audio_path,
         duration_seconds=duration, voice_name=profile.voice_name, tone=profile.tone.value,
     ))
 
@@ -201,6 +214,8 @@ async def send_message(
             energy_level=conv.energy_level,
             emotional_mode=request.emotional_mode,
             celebrity_voice_id=request.celebrity_voice_id,
+            locked_voice_id=conv.voice_id or None,
+            locked_voice_name=conv.voice_name or None,
         )
     except Exception as exc:
         logger.exception("Chat pipeline failed")
@@ -209,7 +224,7 @@ async def send_message(
 
     asst_msg = Message(
         conversation_id=conv.id, role="assistant",
-        content=profile.script, audio_path=audio_path,
+        content=_clean_for_display(profile.script), audio_path=audio_path,
         duration_seconds=duration, voice_name=profile.voice_name, tone=profile.tone.value,
     )
     db.add(asst_msg)

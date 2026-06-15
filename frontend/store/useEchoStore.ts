@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { useShallow } from "zustand/react/shallow";
 import type {
   CommunicationStylePreference,
@@ -118,7 +119,9 @@ interface EchoStore {
   goHome: () => void;
 }
 
-export const useEchoStore = create<EchoStore>((set, get) => ({
+export const useEchoStore = create<EchoStore>()(
+  persist(
+    (set, get) => ({
   screen: "splash",
   tab: "home",
 
@@ -400,7 +403,16 @@ export const useEchoStore = create<EchoStore>((set, get) => ({
     if (tab === "insights") get().loadInsights();
   },
   goHome: () => set({ screen: "home", tab: "home" }),
-}));
+    }),
+    {
+      name: "echo-preferences",
+      partialize: (state) => ({
+        voicePreference: state.voicePreference,
+        communicationStylePreference: state.communicationStylePreference,
+      }),
+    }
+  )
+);
 
 // Splash → login after 2s. Runs once at module load — immune to React Strict
 // Mode because Zustand modules are never double-evaluated by React.

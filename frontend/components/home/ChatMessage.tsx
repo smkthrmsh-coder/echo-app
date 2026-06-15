@@ -29,6 +29,16 @@ function PauseIcon() {
   );
 }
 
+function cleanDisplay(text: string): string {
+  return text
+    .replace(/<break\s+[^>]*\/?>/g, "")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/\*(.+?)\*/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/`([^`]+)`/g, "$1")
+    .trim();
+}
+
 export function ChatMessage({ message, onSaveMemory, autoPlay = false }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -58,7 +68,7 @@ export function ChatMessage({ message, onSaveMemory, autoPlay = false }: Props) 
         className="flex justify-end"
       >
         <div className="bg-zinc-800 border border-zinc-700/60 rounded-2xl rounded-tr-sm px-4 py-3 max-w-[80%]">
-          <p className="text-sm text-zinc-100 leading-relaxed">{message.content}</p>
+          <p className="text-sm text-zinc-100 leading-relaxed">{cleanDisplay(message.content)}</p>
         </div>
       </motion.div>
     );
@@ -72,7 +82,7 @@ export function ChatMessage({ message, onSaveMemory, autoPlay = false }: Props) 
     >
       {/* Message bubble */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[90%]">
-        <p className="text-sm text-zinc-200 leading-relaxed">{message.content}</p>
+        <p className="text-sm text-zinc-200 leading-relaxed">{cleanDisplay(message.content)}</p>
 
         {/* Tone + voice attribution */}
         {message.tone && (

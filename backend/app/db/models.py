@@ -41,6 +41,8 @@ class Conversation(Base):
     energy_level: Mapped[int] = mapped_column(Integer, default=3)
     persona_id: Mapped[str | None] = mapped_column(String(64), nullable=True)  # chosen Echo persona
     emotion: Mapped[str | None] = mapped_column(String(64), nullable=True)     # initial emotion card
+    voice_id: Mapped[str] = mapped_column(String(128), default="")             # locked voice for continuity
+    voice_name: Mapped[str] = mapped_column(String(128), default="")           # display name of locked voice
     is_pinned: Mapped[bool] = mapped_column(Boolean, default=False)
     journey_id: Mapped[str | None] = mapped_column(String(64), nullable=True)  # linked journey
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
