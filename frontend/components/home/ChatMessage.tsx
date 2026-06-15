@@ -62,8 +62,19 @@ export function ChatMessage({ message, onSaveMemory, onAudioPlay, autoPlay = fal
   const accentColor = TONE_COLORS[message.tone] ?? "#d97706";
 
   useEffect(() => {
-    if (autoPlay && audioUrl && audioRef.current) {
-      audioRef.current.play().catch(() => {});
+    if (!autoPlay || !audioUrl || !audioRef.current) return;
+    const audio = audioRef.current;
+    const attemptPlay = () => {
+      audio.play().catch(() => {
+        // Browser autoplay policy blocked playback — user can tap the play button
+      });
+    };
+    // If audio data is already buffered, play immediately; otherwise wait for canplay
+    if (audio.readyState >= 2) {
+      attemptPlay();
+    } else {
+      audio.addEventListener("canplay", attemptPlay, { once: true });
+      return () => audio.removeEventListener("canplay", attemptPlay);
     }
   }, [autoPlay, audioUrl]);
 
@@ -113,19 +124,13 @@ export function ChatMessage({ message, onSaveMemory, onAudioPlay, autoPlay = fal
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[90%]">
         <p className="text-sm text-zinc-200 leading-relaxed">{cleanDisplay(message.content)}</p>
 
-        {/* Companion + tone attribution */}
-        <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-zinc-800/60">
-          <span className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: accentColor }} />
-          {message.voice_name ? (
-            <span className="text-[11px] text-zinc-400 font-medium">{message.voice_name}</span>
-          ) : null}
-          {message.tone && (
-            <>
-              {message.voice_name && <span className="text-[11px] text-zinc-700">·</span>}
-              <span className="text-[11px] text-zinc-500 capitalize">{message.tone}</span>
-            </>
-          )}
-        </div>
+        {/* Tone attribution */}
+        {message.tone && (
+          <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-zinc-800/60">
+            <span className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: accentColor }} />
+            <span className="text-[11px] text-zinc-500 capitalize">{message.tone}</span>
+          </div>
+        )}
       </div>
 
       {/* Audio player */}
@@ -134,6 +139,7 @@ export function ChatMessage({ message, onSaveMemory, onAudioPlay, autoPlay = fal
           <audio
             ref={audioRef}
             src={audioUrl}
+            preload="auto"
             onPlay={() => { setPlaying(true); if (audioRef.current) onAudioPlay?.(audioRef.current); }}
             onPause={() => setPlaying(false)}
             onEnded={() => { setPlaying(false); setProgress(0); }}

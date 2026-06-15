@@ -38,6 +38,7 @@ async def run_chat_pipeline(
     celebrity_voice_id: str | None = None,
     locked_voice_id: str | None = None,
     locked_voice_name: str | None = None,
+    intention: str | None = None,
 ) -> tuple[EmotionProfile, str, float]:
     """
     Chat reply pipeline: message → EmotionProfile + voice + ambience mixed.
@@ -63,6 +64,7 @@ async def run_chat_pipeline(
         emotional_mode=emotional_mode,
         locked_voice_id=locked_voice_id,
         locked_voice_name=locked_voice_name,
+        intention=intention,
     )
 
     if celebrity_voice_id:

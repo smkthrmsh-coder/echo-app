@@ -13,7 +13,7 @@ from app.models.emotion import (
     VoiceSettings,
 )
 from app.services.llm.base import LLMProvider
-from app.services.llm.voice_profiles import get_voice_for_tone
+from app.services.llm.voice_mapping import get_voice_for_intention
 
 logger = get_logger(__name__)
 
@@ -54,7 +54,7 @@ Script writing guidelines:
 - Write for the EAR, not the eye — short, punchy, spoken
 - Be emotionally present — speak TO the listener, not AT them
 - Match energy to tone: fierce=short punchy sentences, calm=flowing sentences
-- End with emotional resolution or momentum"""
+- End with ONE brief, natural question that invites the user to share more — match the energy of the tone (gentle for peace/comfort, energising for motivation/confidence)"""
 
 
 def _extract_json(text: str) -> dict:
@@ -90,6 +90,7 @@ class AnthropicProvider(LLMProvider):
         user_gender: str | None = None,
         user_styles: list[str] | None = None,
         username: str = "there",
+        intention: str | None = None,
     ) -> EmotionProfile:
         logger.info(f"Analyzing prompt: {prompt!r}")
 
@@ -123,9 +124,9 @@ class AnthropicProvider(LLMProvider):
         logger.debug(f"LLM raw response: {raw[:200]}...")
 
         data = _extract_json(raw)
-        return self._build_profile(data, user_gender=user_gender)
+        return self._build_profile(data, user_gender=user_gender, intention=intention)
 
-    def _build_profile(self, data: dict, user_gender: str | None = None) -> EmotionProfile:
+    def _build_profile(self, data: dict, user_gender: str | None = None, intention: str | None = None) -> EmotionProfile:
         tone_str = data.get("tone", "calm").lower()
         try:
             tone = EmotionalTone(tone_str)
@@ -144,18 +145,16 @@ class AnthropicProvider(LLMProvider):
         except ValueError:
             pacing = Pacing.MEDIUM
 
-        # User's explicit gender preference overrides the LLM's suggestion
-        gender_pref = user_gender if user_gender and user_gender != "auto" else data.get("gender_preference")
-        voice = get_voice_for_tone(tone.value, gender_pref)
+        # Deterministic voice selection: intention × gender → specific voice ID
+        voice_id, _, iv = get_voice_for_intention(intention, user_gender)
 
-        # LLM can override voice settings; clamp to valid range
         def clamp(v, lo=0.0, hi=1.0):
             return max(lo, min(hi, float(v)))
 
         voice_settings = VoiceSettings(
-            stability=clamp(data.get("stability", voice.default_stability)),
-            similarity_boost=clamp(data.get("similarity_boost", voice.default_similarity)),
-            style=clamp(data.get("style", voice.default_style)),
+            stability=clamp(data.get("stability", iv.stability)),
+            similarity_boost=clamp(data.get("similarity_boost", iv.similarity_boost)),
+            style=clamp(data.get("style", iv.style)),
             use_speaker_boost=bool(data.get("use_speaker_boost", True)),
         )
 
@@ -167,8 +166,8 @@ class AnthropicProvider(LLMProvider):
             narration_style=narration_style,
             pacing=pacing,
             experience_title=data.get("experience_title", "Emotional Journey"),
-            voice_id=voice.voice_id,
-            voice_name=voice.name,
+            voice_id=voice_id,
+            voice_name="",
             voice_settings=voice_settings,
             ambience_prompt=data.get("ambience_prompt", "soft ambient background"),
             ambience_volume_db=ambience_vol,

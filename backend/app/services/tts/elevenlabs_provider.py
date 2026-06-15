@@ -161,12 +161,12 @@ class ElevenLabsTTSProvider(TTSProvider):
         # Run probe (once) to find a working voice
         await loop.run_in_executor(None, self._run_probe)
 
-        # Infer gender from voice name in our pool
+        # Infer gender from intention voice mapping
         gender = "female"
-        from app.services.llm.voice_profiles import VOICE_POOL
-        for v in VOICE_POOL:
-            if v.voice_id == profile.voice_id:
-                gender = v.gender
+        from app.services.llm.voice_mapping import INTENTION_VOICE_MAP
+        for iv in INTENTION_VOICE_MAP.values():
+            if profile.voice_id in (iv.male_id, iv.female_id):
+                gender = "male" if profile.voice_id == iv.male_id else "female"
                 break
 
         fallback_id = self._pick_fallback(gender)

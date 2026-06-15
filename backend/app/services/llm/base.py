@@ -11,6 +11,7 @@ class LLMProvider(ABC):
         user_gender: str | None = None,
         user_styles: list[str] | None = None,
         username: str = "there",
+        intention: str | None = None,
     ) -> EmotionProfile:
         """Analyze user prompt, determine emotion profile, and write narration script."""
         ...

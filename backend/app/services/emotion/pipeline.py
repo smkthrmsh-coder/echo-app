@@ -35,6 +35,7 @@ async def run_pipeline(
     gender: str | None = None,
     speaking_styles: list[str] | None = None,
     username: str = "there",
+    intention: str | None = None,
 ) -> tuple[EmotionProfile, str, float]:
     """
     Full pipeline: prompt → EmotionProfile + mixed audio file.
@@ -57,6 +58,7 @@ async def run_pipeline(
         user_gender=gender,
         user_styles=speaking_styles,
         username=username,
+        intention=intention,
     )
     logger.info(
         f"[{generation_id}] Profile: tone={profile.tone.value}, "

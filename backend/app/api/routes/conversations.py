@@ -92,6 +92,7 @@ async def create_conversation(
             gender=request.gender or None,
             speaking_styles=request.speaking_styles or None,
             username=request.username or "there",
+            intention=request.emotion or None,
         )
     except Exception as exc:
         logger.exception("Pipeline failed for new conversation")
@@ -224,6 +225,7 @@ async def send_message(
             celebrity_voice_id=request.celebrity_voice_id,
             locked_voice_id=conv.voice_id or None,
             locked_voice_name=conv.voice_name or None,
+            intention=conv.emotion or None,
         )
     except Exception as exc:
         logger.exception("Chat pipeline failed")

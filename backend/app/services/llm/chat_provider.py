@@ -12,7 +12,7 @@ import anthropic
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.models.emotion import EmotionalTone, EmotionProfile, NarrationStyle, Pacing, VoiceSettings
-from app.services.llm.voice_profiles import get_voice_for_tone
+from app.services.llm.voice_mapping import get_voice_for_intention
 
 logger = get_logger(__name__)
 
@@ -35,6 +35,8 @@ Your replies are SHORT (50-80 words max). You write for the EAR — natural spok
 
 You adapt your tone and style based on what the user needs. Be direct, warm, and real.
 
+End every reply with ONE brief, natural question that invites the user to keep sharing. The question should feel like a friend asking — not a therapist checklist. Match the emotional tone: gentle for sad, energising for motivation, curious for focus.
+
 You MUST respond with valid JSON only:
 {
   "tone": "one of: energetic | calm | fierce | comforting | melancholic | playful | mysterious | romantic | anxious | hopeful",
@@ -50,6 +52,7 @@ Style guide:
 - Use em-dashes — to signal a breath
 - Place key words where they land hard
 - No lists, no markdown, pure spoken feeling
+- End with ONE warm, natural question that opens the door for the user to keep sharing
 
 You MUST respond with valid JSON only:
 {
@@ -102,6 +105,7 @@ class ChatProvider:
         emotional_mode: bool = False,
         locked_voice_id: str | None = None,
         locked_voice_name: str | None = None,
+        intention: str | None = None,
     ) -> EmotionProfile:
         style_str = ", ".join(speaking_styles) if speaking_styles else "warm and present"
         energy_desc = ["very gentle", "gentle", "balanced", "energetic", "very energetic"][energy_level - 1]
@@ -131,20 +135,17 @@ class ChatProvider:
         except ValueError:
             tone = EmotionalTone.COMFORTING
 
-        # Voice selection — always run to get voice settings, but override ID/name if locked
-        persona_id = speaking_styles[0] if speaking_styles else None
-        voice = get_voice_for_tone(tone.value, gender, persona_id=persona_id)
-
-        effective_voice_id = locked_voice_id if locked_voice_id else voice.voice_id
-        effective_voice_name = locked_voice_name if locked_voice_name else voice.name
+        # Voice selection: use locked voice for continuity; fall back to intention mapping
+        _, _, iv = get_voice_for_intention(intention, gender)
+        effective_voice_id = locked_voice_id if locked_voice_id else iv.male_id if gender == "male" else iv.female_id
 
         if emotional_mode:
             vs = VoiceSettings(stability=0.20, similarity_boost=0.85, style=0.90, use_speaker_boost=True)
         else:
             vs = VoiceSettings(
-                stability=voice.default_stability,
-                similarity_boost=voice.default_similarity,
-                style=voice.default_style,
+                stability=iv.stability,
+                similarity_boost=iv.similarity_boost,
+                style=iv.style,
                 use_speaker_boost=True,
             )
 
@@ -160,7 +161,7 @@ class ChatProvider:
             pacing=Pacing.SLOW if emotional_mode else Pacing.MEDIUM,
             experience_title="",
             voice_id=effective_voice_id,
-            voice_name=effective_voice_name,
+            voice_name="",
             voice_settings=vs,
             ambience_prompt=ambience_prompt,
             ambience_volume_db=-14.0,
