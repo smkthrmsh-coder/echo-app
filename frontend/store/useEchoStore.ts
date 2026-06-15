@@ -52,6 +52,7 @@ interface EchoStore {
   tab: Tab;
 
   isLoggedIn: boolean;
+  displayName: string;
   login: (email: string, password: string) => boolean;
   logout: () => void;
 
@@ -126,9 +127,12 @@ export const useEchoStore = create<EchoStore>()(
   tab: "home",
 
   isLoggedIn: false,
+  displayName: "there",
   login: (email, password) => {
     if (email.trim() === HARDCODED_EMAIL && password === HARDCODED_PASSWORD) {
-      set({ isLoggedIn: true, screen: "home", homeMode: "welcome" });
+      const name = email.split("@")[0].replace(/^admin_/, "").replace(/_/g, " ");
+      const displayName = name.charAt(0).toUpperCase() + name.slice(1);
+      set({ isLoggedIn: true, screen: "home", homeMode: "welcome", displayName });
       return true;
     }
     return false;
@@ -153,7 +157,7 @@ export const useEchoStore = create<EchoStore>()(
   dismissWelcome: () => set({ homeMode: "creation" }),
 
   startGeneration: async () => {
-    const { selectedIntention, customIntention, voicePreference, communicationStylePreference } = get();
+    const { selectedIntention, customIntention, voicePreference, communicationStylePreference, displayName } = get();
     set({ isCreating: true, createError: null });
 
     const intention = INTENTIONS.find((i) => i.id === selectedIntention);
@@ -171,6 +175,7 @@ export const useEchoStore = create<EchoStore>()(
         speaking_styles,
         gender: voicePreference !== "auto" ? voicePreference : undefined,
         emotion: selectedIntention ?? undefined,
+        username: displayName,
       });
       set({
         conversationId: conv.id,

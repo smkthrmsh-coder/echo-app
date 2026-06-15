@@ -89,6 +89,9 @@ async def create_conversation(
         profile, audio_path, duration = await run_pipeline(
             request.initial_prompt,
             celebrity_voice_id=request.celebrity_voice_id,
+            gender=request.gender or None,
+            speaking_styles=request.speaking_styles or None,
+            username=request.username or "there",
         )
     except Exception as exc:
         logger.exception("Pipeline failed for new conversation")

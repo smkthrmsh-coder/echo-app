@@ -55,6 +55,7 @@ export function ChatMessage({ message, onSaveMemory, onAudioPlay, autoPlay = fal
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [speedIdx, setSpeedIdx] = useState(1);
+  const [audioError, setAudioError] = useState(false);
 
   const isUser = message.role === "user";
   const audioUrl = message.audio_url ? resolveAudioUrl(message.audio_url) : null;
@@ -128,7 +129,7 @@ export function ChatMessage({ message, onSaveMemory, onAudioPlay, autoPlay = fal
       </div>
 
       {/* Audio player */}
-      {audioUrl && (
+      {audioUrl && !audioError && (
         <div className="flex flex-col gap-1.5 max-w-[90%]">
           <audio
             ref={audioRef}
@@ -136,6 +137,7 @@ export function ChatMessage({ message, onSaveMemory, onAudioPlay, autoPlay = fal
             onPlay={() => { setPlaying(true); if (audioRef.current) onAudioPlay?.(audioRef.current); }}
             onPause={() => setPlaying(false)}
             onEnded={() => { setPlaying(false); setProgress(0); }}
+            onError={() => setAudioError(true)}
             onTimeUpdate={() => {
               if (!audioRef.current?.duration) return;
               setProgress(audioRef.current.currentTime / audioRef.current.duration);

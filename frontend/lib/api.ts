@@ -59,6 +59,7 @@ export async function createConversation(data: {
   persona_id?: string | null;
   emotion?: string | null;
   title?: string;
+  username?: string;
 }): Promise<ConversationDetail> {
   return apiFetch<ConversationDetail>("/api/conversations", {
     method: "POST",

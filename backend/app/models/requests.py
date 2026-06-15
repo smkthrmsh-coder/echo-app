@@ -48,10 +48,11 @@ class CreateConversationRequest(BaseModel):
     speaking_styles: list[str] = Field(default_factory=list)
     gender: str = Field(default="female")
     energy_level: int = Field(default=3, ge=1, le=5)
-    persona_id: str | None = None       # Echo persona (sofia, marcus, etc.)
-    emotion: str | None = None          # Emotion card selected by user
+    persona_id: str | None = None
+    emotion: str | None = None
     celebrity_voice_id: str | None = None
     title: str | None = None
+    username: str = "there"
 
 
 class MessageOut(BaseModel):

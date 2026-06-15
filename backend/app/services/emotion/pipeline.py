@@ -32,6 +32,9 @@ async def _try_ambience(provider: ElevenLabsAmbienceProvider, prompt: str, outpu
 async def run_pipeline(
     prompt: str,
     celebrity_voice_id: str | None = None,
+    gender: str | None = None,
+    speaking_styles: list[str] | None = None,
+    username: str = "there",
 ) -> tuple[EmotionProfile, str, float]:
     """
     Full pipeline: prompt → EmotionProfile + mixed audio file.
@@ -49,7 +52,12 @@ async def run_pipeline(
     # Step 1: LLM analyzes prompt → emotion profile + script
     logger.info(f"[{generation_id}] Step 1: LLM analysis")
     llm = get_llm_provider()
-    profile = await llm.analyze_and_generate(prompt)
+    profile = await llm.analyze_and_generate(
+        prompt,
+        user_gender=gender,
+        user_styles=speaking_styles,
+        username=username,
+    )
     logger.info(
         f"[{generation_id}] Profile: tone={profile.tone.value}, "
         f"voice={profile.voice_name}, pacing={profile.pacing.value}"

@@ -17,12 +17,18 @@ from app.services.llm.voice_profiles import get_voice_for_tone
 
 logger = get_logger(__name__)
 
-SYSTEM_PROMPT = """You are an expert AI emotion director and voice experience designer.
+SYSTEM_PROMPT = """You are Echo, a warm AI voice companion and emotion director.
 
 Given a user's emotional request, you must:
 1. Deeply understand the emotional need behind the prompt
 2. Design a complete emotional audio experience
-3. Write a concise narration script (80-120 words)
+3. Write a concise, personal narration script (80-120 words)
+
+CRITICAL: Always open with a warm personal greeting using the user's name. Match it to the emotion:
+- Comforting / peace / sleep / grief / listen → "Hey {name}, I hear you."
+- Confidence / motivation / energy / encouragement → "Hey {name}, you came to the right place."
+- Focus / clarity / productivity → "Hey {name}, let's get you there."
+- Default / other → "Hey {name}, I'm glad you're here."
 
 You MUST respond with valid JSON only. No markdown, no explanation outside the JSON.
 
@@ -78,10 +84,32 @@ class AnthropicProvider(LLMProvider):
         self._max_tokens = settings.llm_max_tokens
         self._temperature = settings.llm_temperature
 
-    async def analyze_and_generate(self, prompt: str) -> EmotionProfile:
+    async def analyze_and_generate(
+        self,
+        prompt: str,
+        user_gender: str | None = None,
+        user_styles: list[str] | None = None,
+        username: str = "there",
+    ) -> EmotionProfile:
         logger.info(f"Analyzing prompt: {prompt!r}")
 
-        user_message = f'User emotional request: "{prompt}"\n\nDesign the complete emotional audio experience and write the narration script.'
+        style_note = ""
+        if user_styles:
+            style_map = {
+                "calm": "calm and gentle", "friendly": "warm and friendly",
+                "direct": "direct and clear", "mentor": "wise and mentoring",
+                "coach": "motivational coaching", "gentle": "soft and gentle",
+                "funny": "light and humorous",
+            }
+            style_desc = style_map.get(user_styles[0], user_styles[0])
+            style_note = f" Write in a {style_desc} style."
+
+        user_message = (
+            f'User name: {username}. User emotional request: "{prompt}".'
+            f'{style_note}'
+            f'\n\nDesign the complete emotional audio experience and write the narration script. '
+            f'Open with a warm greeting using "{username}" as instructed.'
+        )
 
         message = self._client.messages.create(
             model=self._model,
@@ -95,9 +123,9 @@ class AnthropicProvider(LLMProvider):
         logger.debug(f"LLM raw response: {raw[:200]}...")
 
         data = _extract_json(raw)
-        return self._build_profile(data)
+        return self._build_profile(data, user_gender=user_gender)
 
-    def _build_profile(self, data: dict) -> EmotionProfile:
+    def _build_profile(self, data: dict, user_gender: str | None = None) -> EmotionProfile:
         tone_str = data.get("tone", "calm").lower()
         try:
             tone = EmotionalTone(tone_str)
@@ -116,7 +144,8 @@ class AnthropicProvider(LLMProvider):
         except ValueError:
             pacing = Pacing.MEDIUM
 
-        gender_pref = data.get("gender_preference")
+        # User's explicit gender preference overrides the LLM's suggestion
+        gender_pref = user_gender if user_gender and user_gender != "auto" else data.get("gender_preference")
         voice = get_voice_for_tone(tone.value, gender_pref)
 
         # LLM can override voice settings; clamp to valid range
