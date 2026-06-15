@@ -79,13 +79,32 @@ def _clean_script(text: str) -> str:
     return text.strip()
 
 
-def _apply_emotional_markup(script: str) -> str:
-    """Inject ElevenLabs SSML break tags for natural delivery. Applied to TTS only."""
-    marked = "<break time='0.8s'/> " + script
-    marked = re.sub(r"\. +", ". <break time='0.5s'/> ", marked)
-    marked = re.sub(r", +", ", <break time='0.2s'/> ", marked)
-    marked = re.sub(r" — ", " <break time='0.4s'/> — <break time='0.2s'/> ", marked)
-    marked = re.sub(r"\.\.\. +", "... <break time='0.6s'/> ", marked)
+_INTENTION_PACING: dict[str, dict] = {
+    # Slow, spacious — sleep, peace, grief
+    "sleep":  {"open": "1.2s", "sentence": "0.8s", "comma": "0.4s", "em": "0.6s", "ellipsis": "0.9s"},
+    "peace":  {"open": "1.0s", "sentence": "0.7s", "comma": "0.3s", "em": "0.5s", "ellipsis": "0.8s"},
+    "listen": {"open": "1.0s", "sentence": "0.7s", "comma": "0.35s", "em": "0.5s", "ellipsis": "0.8s"},
+    "comfort":{"open": "0.9s", "sentence": "0.6s", "comma": "0.3s", "em": "0.45s", "ellipsis": "0.7s"},
+    # Neutral
+    "focus":        {"open": "0.5s", "sentence": "0.4s", "comma": "0.15s", "em": "0.3s", "ellipsis": "0.5s"},
+    "clarity":      {"open": "0.5s", "sentence": "0.4s", "comma": "0.15s", "em": "0.3s", "ellipsis": "0.5s"},
+    "encouragement":{"open": "0.6s", "sentence": "0.4s", "comma": "0.2s",  "em": "0.35s", "ellipsis": "0.5s"},
+    # Energetic — less silence, more momentum
+    "motivation":   {"open": "0.3s", "sentence": "0.25s", "comma": "0.1s", "em": "0.2s", "ellipsis": "0.3s"},
+    "confidence":   {"open": "0.3s", "sentence": "0.25s", "comma": "0.1s", "em": "0.2s", "ellipsis": "0.3s"},
+    "energy":       {"open": "0.2s", "sentence": "0.2s",  "comma": "0.08s", "em": "0.15s", "ellipsis": "0.25s"},
+}
+_DEFAULT_PACING = {"open": "0.6s", "sentence": "0.45s", "comma": "0.2s", "em": "0.35s", "ellipsis": "0.55s"}
+
+
+def _apply_emotional_markup(script: str, intention: str | None = None) -> str:
+    """Inject ElevenLabs SSML break tags tuned to the emotional intention."""
+    p = _INTENTION_PACING.get(intention or "", _DEFAULT_PACING)
+    marked = f"<break time='{p['open']}'/> " + script
+    marked = re.sub(r"\. +", f". <break time='{p['sentence']}'/> ", marked)
+    marked = re.sub(r", +", f", <break time='{p['comma']}'/> ", marked)
+    marked = re.sub(r" — ", f" <break time='{p['em']}'/> — <break time='{p['comma']}'/> ", marked)
+    marked = re.sub(r"\.\.\. +", f"... <break time='{p['ellipsis']}'/> ", marked)
     return marked
 
 
@@ -150,8 +169,8 @@ class ChatProvider:
             )
 
         clean = _clean_script(data.get("script", "I'm here with you."))
-        # SSML markup is applied to script for TTS delivery only
-        tts_script = _apply_emotional_markup(clean) if emotional_mode else clean
+        # SSML markup tuned to intention for natural pacing
+        tts_script = _apply_emotional_markup(clean, intention=intention) if emotional_mode else clean
 
         ambience_prompt = TONE_AMBIENCE.get(tone.value, "soft ambient background, warm and subtle")
 

@@ -1,20 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
 import { useEchoStore } from "@/store/useEchoStore";
 
-const MESSAGES = [
-  "Listening...",
-  "Understanding your situation...",
-  "Finding the right words...",
-  "Choosing the perfect voice...",
-  "Creating your experience...",
-  "Preparing your audio...",
+const STAGE_MESSAGES = [
+  { text: "Listening...", delay: 0 },
+  { text: "Understanding your story...", delay: 4000 },
+  { text: "Finding the right words...", delay: 8000 },
+  { text: "Choosing the perfect voice...", delay: 12000 },
+  { text: "Preparing your experience...", delay: 16000 },
 ];
-
-const BARS = Array.from({ length: 11 });
 
 export function CreationStep4() {
   const { isCreating, createError, resetCreation } = useEchoStore(
@@ -26,13 +23,16 @@ export function CreationStep4() {
   );
 
   const [msgIndex, setMsgIndex] = useState(0);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     if (!isCreating) return;
-    const interval = setInterval(() => {
-      setMsgIndex((i) => Math.min(i + 1, MESSAGES.length - 1));
-    }, 3000);
-    return () => clearInterval(interval);
+    setMsgIndex(0);
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = STAGE_MESSAGES.map(({ delay }, i) =>
+      setTimeout(() => setMsgIndex(i), delay),
+    );
+    return () => timersRef.current.forEach(clearTimeout);
   }, [isCreating]);
 
   if (createError) {
@@ -58,34 +58,75 @@ export function CreationStep4() {
   }
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center px-6">
-      {/* Waveform */}
-      <div className="flex items-center gap-[4px] mb-10">
-        {BARS.map((_, i) => (
+    <div className="absolute inset-0 flex flex-col items-center justify-center px-6 select-none">
+      {/* Breathing orb */}
+      <div className="relative flex items-center justify-center mb-14">
+        {/* Outer glow rings */}
+        {[1, 2, 3].map((ring) => (
+          <motion.div
+            key={ring}
+            className="absolute rounded-full border border-amber-500/10"
+            style={{ width: 80 + ring * 40, height: 80 + ring * 40 }}
+            animate={{ scale: [1, 1.08, 1], opacity: [0.15, 0.04, 0.15] }}
+            transition={{
+              duration: 3.5,
+              repeat: Infinity,
+              delay: ring * 0.5,
+              ease: "easeInOut",
+            }}
+          />
+        ))}
+        {/* Core orb */}
+        <motion.div
+          className="relative z-10 w-20 h-20 rounded-full"
+          style={{
+            background: "radial-gradient(circle at 40% 38%, #fbbf24 0%, #d97706 55%, #92400e 100%)",
+            boxShadow: "0 0 32px rgba(251,191,36,0.20), 0 0 80px rgba(251,191,36,0.08)",
+          }}
+          animate={{
+            scale: [1, 1.06, 1],
+            boxShadow: [
+              "0 0 32px rgba(251,191,36,0.20), 0 0 80px rgba(251,191,36,0.08)",
+              "0 0 48px rgba(251,191,36,0.30), 0 0 120px rgba(251,191,36,0.14)",
+              "0 0 32px rgba(251,191,36,0.20), 0 0 80px rgba(251,191,36,0.08)",
+            ],
+          }}
+          transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+        />
+      </div>
+
+      {/* Stage message */}
+      <AnimatePresence mode="wait">
+        <motion.p
+          key={msgIndex}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+          className="text-[16px] text-white text-center font-medium tracking-tight"
+        >
+          {STAGE_MESSAGES[msgIndex].text}
+        </motion.p>
+      </AnimatePresence>
+
+      {/* Progress dots */}
+      <div className="flex items-center gap-1.5 mt-5">
+        {STAGE_MESSAGES.map((_, i) => (
           <motion.div
             key={i}
-            className="w-[3px] rounded-full bg-amber-500"
-            animate={{ scaleY: [0.12, 1, 0.12], opacity: [0.25, 1, 0.25] }}
-            transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.1, ease: "easeInOut" }}
-            style={{ height: 52, transformOrigin: "center" }}
+            className="rounded-full bg-zinc-700"
+            animate={{
+              width: i === msgIndex ? 16 : 4,
+              opacity: i <= msgIndex ? 1 : 0.3,
+              backgroundColor: i === msgIndex ? "#f59e0b" : "#3f3f46",
+            }}
+            style={{ height: 4 }}
+            transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
           />
         ))}
       </div>
 
-      <AnimatePresence mode="wait">
-        <motion.p
-          key={msgIndex}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.35 }}
-          className="text-[15px] text-white text-center font-medium"
-        >
-          {MESSAGES[msgIndex]}
-        </motion.p>
-      </AnimatePresence>
-
-      <p className="text-xs text-zinc-600 mt-3 text-center">Usually takes 15 – 25 seconds</p>
+      <p className="text-[11px] text-zinc-600 mt-8">Usually takes 10 – 20 seconds</p>
     </div>
   );
 }

@@ -1,32 +1,22 @@
 """
 Voice Emotion Pipeline Orchestrator.
 
-Coordinates: LLM → TTS + Ambience (parallel) → Mix → Save
-Ambience failure is non-fatal — falls back to voice-only audio.
+Coordinates: LLM → TTS → Save
+Ambience is handled browser-side via Web Audio API (removes it from the critical path).
 """
 
-import asyncio
+import time
 import uuid
 from pathlib import Path
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.models.emotion import EmotionProfile
-from app.services.ambience.elevenlabs_provider import ElevenLabsAmbienceProvider
-from app.services.audio.mixer import get_audio_duration, mix_audio
+from app.services.audio.mixer import get_audio_duration
 from app.services.llm.factory import get_llm_provider
 from app.services.tts.factory import get_tts_provider
 
 logger = get_logger(__name__)
-
-
-async def _try_ambience(provider: ElevenLabsAmbienceProvider, prompt: str, output_path: str) -> str | None:
-    """Generate ambience audio, returning None on any failure (non-fatal)."""
-    try:
-        return await provider.generate(prompt=prompt, output_path=output_path, duration_seconds=22.0)
-    except Exception as exc:
-        logger.warning(f"Ambience generation failed (voice-only fallback): {exc}")
-        return None
 
 
 async def run_pipeline(
@@ -38,20 +28,19 @@ async def run_pipeline(
     intention: str | None = None,
 ) -> tuple[EmotionProfile, str, float]:
     """
-    Full pipeline: prompt → EmotionProfile + mixed audio file.
+    Full pipeline: prompt → EmotionProfile + voice audio file.
     Returns (emotion_profile, audio_path, duration_seconds).
     """
     settings = get_settings()
     generation_id = str(uuid.uuid4())
     audio_dir = Path(settings.audio_output_dir)
     audio_dir.mkdir(parents=True, exist_ok=True)
+    final_path = str(audio_dir / f"{generation_id}_voice.mp3")
 
-    voice_path = str(audio_dir / f"{generation_id}_voice.mp3")
-    ambience_path = str(audio_dir / f"{generation_id}_ambience.mp3")
-    final_path = str(audio_dir / f"{generation_id}_final.mp3")
+    t0 = time.monotonic()
 
     # Step 1: LLM analyzes prompt → emotion profile + script
-    logger.info(f"[{generation_id}] Step 1: LLM analysis")
+    logger.info(f"[{generation_id}] Step 1: LLM analysis | intention={intention} | gender={gender}")
     llm = get_llm_provider()
     profile = await llm.analyze_and_generate(
         prompt,
@@ -60,45 +49,29 @@ async def run_pipeline(
         username=username,
         intention=intention,
     )
+    t1 = time.monotonic()
     logger.info(
-        f"[{generation_id}] Profile: tone={profile.tone.value}, "
-        f"voice={profile.voice_name}, pacing={profile.pacing.value}"
+        f"[{generation_id}] LLM done in {t1-t0:.2f}s | tone={profile.tone.value} | "
+        f"script_len={len(profile.script.split())} words"
     )
 
     if celebrity_voice_id:
         profile.voice_id = celebrity_voice_id
         profile.voice_name = f"custom:{celebrity_voice_id}"
-        logger.info(f"[{generation_id}] Using celebrity voice override: {celebrity_voice_id}")
 
     if not profile.script:
         raise RuntimeError("LLM returned empty script")
 
-    # Step 2: TTS + Ambience in parallel (ambience failure is non-fatal)
-    logger.info(f"[{generation_id}] Step 2: Parallel TTS + Ambience generation")
+    # Step 2: TTS → voice audio
+    logger.info(f"[{generation_id}] Step 2: TTS synthesis | voice_id={profile.voice_id}")
     tts = get_tts_provider()
-    ambience_provider = ElevenLabsAmbienceProvider()
+    await tts.synthesize(profile, final_path)
+    t2 = time.monotonic()
+    logger.info(f"[{generation_id}] TTS done in {t2-t1:.2f}s")
 
-    voice_result, ambience_result = await asyncio.gather(
-        tts.synthesize(profile, voice_path),
-        _try_ambience(ambience_provider, profile.ambience_prompt, ambience_path),
+    duration = get_audio_duration(final_path)
+    logger.info(
+        f"[{generation_id}] Pipeline complete | total={t2-t0:.2f}s | "
+        f"duration={duration:.1f}s | {final_path}"
     )
-
-    # Step 3: Mix if ambience available, otherwise use voice directly
-    if ambience_result:
-        logger.info(f"[{generation_id}] Step 3: Mixing audio")
-        final_path, duration = mix_audio(
-            voice_path=voice_result,
-            ambience_path=ambience_result,
-            output_path=final_path,
-            ambience_volume_db=profile.ambience_volume_db,
-            voice_volume_db=settings.voice_volume_db,
-        )
-        Path(voice_path).unlink(missing_ok=True)
-        Path(ambience_path).unlink(missing_ok=True)
-    else:
-        logger.info(f"[{generation_id}] Step 3: Voice-only (no ambience)")
-        Path(voice_result).rename(final_path)
-        duration = get_audio_duration(final_path)
-
-    logger.info(f"[{generation_id}] Pipeline complete | duration={duration:.1f}s | {final_path}")
     return profile, final_path, duration

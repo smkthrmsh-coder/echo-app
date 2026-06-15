@@ -46,6 +46,7 @@ export function ChatView() {
     sendMessage,
     saveMemory,
     resetCreation,
+    selectedIntention,
   } = useEchoStore(
     useShallow((s) => ({
       conversationTitle: s.conversationTitle,
@@ -55,6 +56,7 @@ export function ChatView() {
       sendMessage: s.sendMessage,
       saveMemory: s.saveMemory,
       resetCreation: s.resetCreation,
+      selectedIntention: s.selectedIntention,
     })),
   );
 
@@ -62,6 +64,7 @@ export function ChatView() {
   const [recording, setRecording] = useState(false);
   const [memoryModal, setMemoryModal] = useState<{ msg: EchoMessage; title: string } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const mediaRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -82,7 +85,7 @@ export function ChatView() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isSending]);
 
   function handleSend() {
     const text = input.trim();
@@ -90,6 +93,16 @@ export function ChatView() {
     stopCurrentAudio();
     setInput("");
     sendMessage(text);
+  }
+
+  function handleFollowUp(response: string) {
+    stopCurrentAudio();
+    if (response === "Hear another perspective") {
+      sendMessage("I'd like to hear another perspective on this.");
+    } else {
+      sendMessage(response);
+    }
+    setTimeout(() => inputRef.current?.focus(), 300);
   }
 
   async function startRecording() {
@@ -132,13 +145,18 @@ export function ChatView() {
     -1,
   );
 
+  // Short title for header (max ~30 chars)
+  const headerTitle = conversationTitle.length > 32
+    ? conversationTitle.slice(0, 30).trimEnd() + "…"
+    : conversationTitle;
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-900/80">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-900/80 gap-3">
         <button
           onClick={resetCreation}
-          className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-200 text-sm transition-colors"
+          className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-200 text-sm transition-colors flex-shrink-0"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M9 2L4.5 7 9 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -146,53 +164,70 @@ export function ChatView() {
           <span>New</span>
         </button>
 
-        <h2 className="text-[13px] font-semibold text-zinc-300 truncate max-w-[32%] text-center">
-          {conversationTitle}
+        <h2 className="text-[13px] font-semibold text-zinc-300 text-center flex-1 truncate">
+          {headerTitle}
         </h2>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           <VoiceToggle />
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5">
         {messages.map((msg, i) => (
           <ChatMessage
             key={msg.id}
             message={msg}
             onSaveMemory={openMemoryModal}
             onAudioPlay={handleAudioPlay}
+            onFollowUp={handleFollowUp}
             autoPlay={msg.role === "assistant" && i === lastAssistantIndex && i === messages.length - 1}
+            isLastAssistant={msg.role === "assistant" && i === lastAssistantIndex}
+            experienceTitle={i === 1 ? conversationTitle : undefined}
           />
         ))}
 
+        {/* Thinking indicator */}
         {isSending && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-1.5 px-1">
+          <motion.div
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-1.5 px-1"
+          >
             {[0, 1, 2].map((i) => (
               <motion.div
                 key={i}
                 className="w-1.5 h-1.5 rounded-full bg-zinc-600"
-                animate={{ opacity: [0.3, 1, 0.3] }}
-                transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.1, 0.8] }}
+                transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.18 }}
               />
             ))}
           </motion.div>
         )}
 
-        {sendError && <p className="text-red-400 text-xs px-1">{sendError}</p>}
+        {sendError && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-red-400 text-xs px-1"
+          >
+            {sendError}
+          </motion.p>
+        )}
         <div ref={bottomRef} />
       </div>
 
       {/* Input */}
       <div className="px-4 py-3 border-t border-zinc-900/80 flex items-end gap-2">
         <textarea
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
           }}
-          placeholder="Reply..."
+          placeholder="Share what's on your mind..."
           rows={1}
           className="flex-1 bg-zinc-900 border border-zinc-800 focus:border-zinc-700 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 resize-none transition-colors focus:outline-none"
           style={{ maxHeight: 96 }}
@@ -213,7 +248,7 @@ export function ChatView() {
         <button
           onClick={handleSend}
           disabled={!input.trim() || isSending}
-          className="w-10 h-10 rounded-full bg-amber-500 hover:bg-amber-400 disabled:opacity-25 flex items-center justify-center text-black flex-shrink-0 transition-all"
+          className="w-10 h-10 rounded-full bg-amber-500 hover:bg-amber-400 disabled:opacity-25 flex items-center justify-center text-black flex-shrink-0 transition-all active:scale-95"
         >
           <SendIcon />
         </button>

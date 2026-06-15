@@ -5,6 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useEchoStore } from "@/store/useEchoStore";
 import { INTENTIONS } from "@/types";
 import type { IntentionId } from "@/types";
+import { startAmbient } from "@/hooks/useAmbientSound";
 
 export function IntentionStep() {
   const {
@@ -122,7 +123,11 @@ export function IntentionStep() {
       <div className="px-6 pb-6 pt-3 flex-shrink-0">
         <motion.button
           whileTap={{ scale: 0.98 }}
-          onClick={startGeneration}
+          onClick={() => {
+            // Start ambient within the user gesture so AudioContext is allowed
+            startAmbient(selectedIntention as IntentionId);
+            startGeneration();
+          }}
           disabled={!canContinue || isCreating}
           className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-25 text-black font-semibold rounded-xl py-3.5 text-[15px] transition-all"
         >
