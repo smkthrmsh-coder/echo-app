@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     # ElevenLabs
     elevenlabs_api_key: str = ""
     tts_provider: str = "elevenlabs"
-    elevenlabs_tts_model: str = "eleven_v3"
+    elevenlabs_tts_model: str = "eleven_turbo_v2_5"
     # Optional: set these to override auto-selected voices (get IDs from elevenlabs.io → Voices)
     elevenlabs_voice_id: str = ""
     elevenlabs_voice_id_male: str = ""

@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import type { IntentionId } from "@/types";
 
 // Harmonic frequencies tuned per emotional intention
-// Low-volume sine pad — barely audible, fills silence intentionally
 const INTENTION_HARMONICS: Record<string, number[]> = {
   peace:        [174, 285, 396],
   comfort:      [220, 277, 330],
@@ -26,14 +24,11 @@ const INTENTION_GAIN: Record<string, number> = {
   other: 0.012,
 };
 
-interface AmbientHandle {
-  fadeOut: (durationMs?: number) => void;
-}
-
-// Module-level context — survives React re-renders, avoids duplicate contexts
+// Module-level singleton — survives React re-renders
 let _ctx: AudioContext | null = null;
 let _masterGain: GainNode | null = null;
 let _oscillators: OscillatorNode[] = [];
+const _connectedElements = new WeakSet<HTMLAudioElement>();
 
 function getOrCreateContext(): AudioContext {
   if (!_ctx || _ctx.state === "closed") {
@@ -48,10 +43,9 @@ function getOrCreateContext(): AudioContext {
 /**
  * Start ambient harmonic pad for the given intention.
  * Must be called synchronously within a user gesture handler.
- * Returns a handle to fade the sound out.
  */
-export function startAmbient(intention: IntentionId | null): AmbientHandle {
-  if (typeof window === "undefined") return { fadeOut: () => {} };
+export function startAmbient(intention: IntentionId | null): void {
+  if (typeof window === "undefined") return;
 
   const key = intention ?? "other";
   const freqs = INTENTION_HARMONICS[key] ?? INTENTION_HARMONICS.other;
@@ -61,7 +55,7 @@ export function startAmbient(intention: IntentionId | null): AmbientHandle {
     const ctx = getOrCreateContext();
     if (ctx.state === "suspended") ctx.resume();
 
-    // Stop any existing oscillators
+    // Stop any previous oscillators
     _oscillators.forEach((o) => { try { o.stop(); } catch {} });
     _oscillators = [];
 
@@ -77,48 +71,56 @@ export function startAmbient(intention: IntentionId | null): AmbientHandle {
       _oscillators.push(osc);
     });
 
-    // Fade in over 800ms
+    // Fade in over 600ms
     _masterGain!.gain.cancelScheduledValues(ctx.currentTime);
     _masterGain!.gain.setValueAtTime(0, ctx.currentTime);
-    _masterGain!.gain.linearRampToValueAtTime(1, ctx.currentTime + 0.8);
+    _masterGain!.gain.linearRampToValueAtTime(1, ctx.currentTime + 0.6);
   } catch {
-    // AudioContext blocked — silently fail
+    // AudioContext blocked — silent fail
   }
-
-  return {
-    fadeOut: (durationMs = 1500) => {
-      try {
-        if (!_ctx || !_masterGain) return;
-        const ctx = _ctx;
-        const mg = _masterGain;
-        const dur = durationMs / 1000;
-        mg.gain.cancelScheduledValues(ctx.currentTime);
-        mg.gain.setValueAtTime(mg.gain.value, ctx.currentTime);
-        mg.gain.linearRampToValueAtTime(0, ctx.currentTime + dur);
-        setTimeout(() => {
-          _oscillators.forEach((o) => { try { o.stop(); } catch {} });
-          _oscillators = [];
-        }, durationMs + 100);
-      } catch {}
-    },
-  };
 }
 
 /**
- * Hook that starts ambient on mount and fades out on unmount.
- * Pass `active=false` to suppress (e.g. when audio is playing).
+ * Fade out and stop the ambient pad.
+ * Call when voice audio begins playing.
  */
-export function useAmbientSound(
-  intention: IntentionId | null,
-  active: boolean,
-): void {
-  const handleRef = useRef<AmbientHandle | null>(null);
+export function stopAmbient(durationMs = 1200): void {
+  try {
+    if (!_ctx || !_masterGain || _oscillators.length === 0) return;
+    const ctx = _ctx;
+    const mg = _masterGain;
+    const dur = durationMs / 1000;
+    mg.gain.cancelScheduledValues(ctx.currentTime);
+    mg.gain.setValueAtTime(mg.gain.value, ctx.currentTime);
+    mg.gain.linearRampToValueAtTime(0, ctx.currentTime + dur);
+    const oscs = [..._oscillators];
+    _oscillators = [];
+    setTimeout(() => {
+      oscs.forEach((o) => { try { o.stop(); } catch {} });
+    }, durationMs + 100);
+  } catch {}
+}
 
-  useEffect(() => {
-    if (!active || !intention) return;
-    handleRef.current = startAmbient(intention);
-    return () => {
-      handleRef.current?.fadeOut(1200);
-    };
-  }, [intention, active]);
+/**
+ * Connect an <audio> element to the shared AudioContext.
+ *
+ * This is the key trick for iOS autoplay:
+ * - AudioContext was unlocked during the user's button-press gesture
+ * - Any MediaElementSource connected to it inherits that unlocked state
+ * - So audio.play() succeeds even seconds/minutes after the original gesture
+ *
+ * Safe to call multiple times — only connects once per element.
+ */
+export function connectAudioElement(el: HTMLAudioElement): void {
+  if (typeof window === "undefined" || _connectedElements.has(el)) return;
+  try {
+    const ctx = getOrCreateContext();
+    if (ctx.state === "suspended") ctx.resume();
+    const source = ctx.createMediaElementSource(el);
+    // Route voice audio directly to speakers (bypassing master gain / ambient)
+    source.connect(ctx.destination);
+    _connectedElements.add(el);
+  } catch {
+    // createMediaElementSource can throw if el is already connected or ctx is closed
+  }
 }

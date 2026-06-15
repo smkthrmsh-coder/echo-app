@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { resolveAudioUrl } from "@/lib/api";
 import type { EchoMessage } from "@/types";
 import { TONE_COLORS } from "@/types";
+import { connectAudioElement, stopAmbient } from "@/hooks/useAmbientSound";
 
 interface Props {
   message: EchoMessage;
@@ -88,13 +89,20 @@ export function ChatMessage({
   const audioUrl = message.audio_url ? resolveAudioUrl(message.audio_url) : null;
   const accentColor = TONE_COLORS[message.tone] ?? "#d97706";
 
-  // Auto-play: wait for canplay event + preload
+  // Auto-play: connect to AudioContext (unlocked during original button press) so iOS allows play()
   useEffect(() => {
     if (!autoPlay || !audioUrl || !audioRef.current) return;
     const audio = audioRef.current;
+
+    // Connect to the shared AudioContext — inherits the gesture-unlock from button press
+    connectAudioElement(audio);
+
     const attemptPlay = () => {
-      audio.play().catch(() => {});
+      audio.play().catch(() => {
+        // Autoplay still blocked (e.g. user hasn't interacted at all) — play button is visible
+      });
     };
+
     if (audio.readyState >= 2) {
       attemptPlay();
     } else {
@@ -201,7 +209,11 @@ export function ChatMessage({
             ref={audioRef}
             src={audioUrl}
             preload="auto"
-            onPlay={() => { setPlaying(true); if (audioRef.current) onAudioPlay?.(audioRef.current); }}
+            onPlay={() => {
+              setPlaying(true);
+              stopAmbient(1200); // fade out ambient when voice starts
+              if (audioRef.current) onAudioPlay?.(audioRef.current);
+            }}
             onPause={() => setPlaying(false)}
             onEnded={() => { setPlaying(false); setEnded(true); }}
             onError={() => setAudioError(true)}
