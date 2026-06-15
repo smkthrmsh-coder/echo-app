@@ -162,6 +162,14 @@ export async function generateJourneySession(slug: string): Promise<{
   return apiFetch(`/api/journeys/${slug}/session`, { method: "POST" });
 }
 
+export async function fetchJourneyRecommendations(): Promise<{ slug: string; reason: string }[]> {
+  try {
+    return await apiFetch<{ slug: string; reason: string }[]>("/api/journeys/recommendations");
+  } catch {
+    return [];
+  }
+}
+
 // ─── Insights ─────────────────────────────────────────────────────────────────
 
 export async function fetchInsights(): Promise<InsightsData> {

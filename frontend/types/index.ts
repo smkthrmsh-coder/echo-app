@@ -55,6 +55,8 @@ export interface JourneyTemplate {
   emoji: string;
   tagline: string;
   description: string;
+  outcome: string;
+  tags: string[];
   duration_days: number;
   category: string;
   color: string;
@@ -70,6 +72,9 @@ export interface UserJourney {
   started_at: string;
   last_session_at: string | null;
   today_prompt: string | null;
+  remaining_days: number;
+  progress_pct: number;
+  estimated_completion: string | null;
 }
 
 export interface StreakData {
@@ -100,6 +105,8 @@ export interface InsightsData {
   most_active_style: string;
   average_session_length: number;
   total_audio_minutes: number;
+  favourite_companion: string;
+  weekly_activity: boolean[];
 }
 
 // ─── Creation flow — V1 ───────────────────────────────────────────────────────

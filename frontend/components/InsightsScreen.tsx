@@ -14,12 +14,60 @@ function LockIcon() {
   );
 }
 
-function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+function StatCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: string }) {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-4">
-      <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-1.5">{label}</p>
-      <p className="text-[22px] font-bold text-white leading-none">{value}</p>
-      {sub && <p className="text-xs text-zinc-500 mt-1">{sub}</p>}
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4">
+      <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-2">{label}</p>
+      <p className="text-[26px] font-bold leading-none" style={{ color: accent ?? "#ffffff" }}>{value}</p>
+      {sub && <p className="text-[11px] text-zinc-500 mt-1.5">{sub}</p>}
+    </div>
+  );
+}
+
+function WeekActivity({ activity }: { activity: boolean[] }) {
+  const days = ["M", "T", "W", "T", "F", "S", "S"];
+  const today = new Date().getDay();
+  const orderedDays = [...days.slice(today), ...days.slice(0, today)].slice(-7);
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4">
+      <div className="flex justify-between items-end">
+        {activity.map((active, i) => (
+          <div key={i} className="flex flex-col items-center gap-2">
+            <motion.div
+              initial={{ scaleY: 0 }}
+              animate={{ scaleY: 1 }}
+              transition={{ duration: 0.3, delay: i * 0.05 }}
+              className="w-8 rounded-lg origin-bottom"
+              style={{
+                height: active ? "32px" : "16px",
+                backgroundColor: active ? "#f59e0b" : "#27272a",
+              }}
+            />
+            <span className="text-[10px] text-zinc-600">{orderedDays[i]}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CompanionCard({ name }: { name: string }) {
+  const COMPANION_EMOJIS: Record<string, string> = {
+    Sofia: "✨", Marcus: "🌊", Alex: "⚡", Luna: "🌙",
+    James: "🎯", Charlie: "😊", Nova: "🔥", River: "🌿", Atlas: "🏔",
+  };
+  const emoji = COMPANION_EMOJIS[name] ?? "🎙";
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 flex items-center gap-4">
+      <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
+        <span className="text-xl">{emoji}</span>
+      </div>
+      <div>
+        <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-0.5">Favourite companion</p>
+        <p className="text-[16px] font-bold text-white">{name}</p>
+        <p className="text-xs text-zinc-500 mt-0.5">Your most-used voice</p>
+      </div>
     </div>
   );
 }
@@ -31,12 +79,11 @@ function LockedState({ conversationsUntilUnlock }: { conversationsUntilUnlock: n
       <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-5">
         <LockIcon />
       </div>
-      <h3 className="text-[17px] font-bold text-white mb-2">Insights unlock soon</h3>
+      <h3 className="text-[17px] font-bold text-white mb-2">Reflection unlocks soon</h3>
       <p className="text-sm text-zinc-400 leading-relaxed mb-7 max-w-[260px]">
         Have {conversationsUntilUnlock} more conversation{conversationsUntilUnlock !== 1 ? "s" : ""} with Echo to unlock your personal patterns and emotion trends.
       </p>
 
-      {/* Progress */}
       <div className="w-full max-w-[220px]">
         <div className="flex justify-between text-xs text-zinc-500 mb-2">
           <span>{done} of 3 conversations</span>
@@ -73,7 +120,7 @@ export function InsightsScreen() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="px-6 pt-6 pb-4">
-        <h1 className="text-[18px] font-bold text-white">Insights</h1>
+        <h1 className="text-[18px] font-bold text-white">Reflection</h1>
         <p className="text-xs text-zinc-500 mt-0.5">Your emotional patterns over time.</p>
       </div>
 
@@ -89,29 +136,65 @@ export function InsightsScreen() {
         {insights && !insights.locked && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
 
-            {/* Stats grid */}
+            {/* Overview stats */}
             <div>
               <SectionTitle>Overview</SectionTitle>
               <div className="grid grid-cols-2 gap-2.5">
-                <StatCard label="Sessions" value={insights.total_conversations} sub="total conversations" />
-                <StatCard label="Streak" value={`${insights.current_streak}d`} sub="days in a row" />
-                <StatCard label="Listened" value={`${insights.total_audio_minutes.toFixed(0)}m`} sub="total audio" />
-                <StatCard label="Memories" value={insights.total_memories} sub="moments saved" />
+                <StatCard
+                  label="Sessions"
+                  value={insights.total_conversations}
+                  sub="total conversations"
+                  accent="#f59e0b"
+                />
+                <StatCard
+                  label="Streak"
+                  value={`${insights.current_streak}d`}
+                  sub="days in a row"
+                  accent="#34d399"
+                />
+                <StatCard
+                  label="Listened"
+                  value={`${insights.total_audio_minutes.toFixed(0)}m`}
+                  sub="total audio"
+                  accent="#a78bfa"
+                />
+                <StatCard
+                  label="Memories"
+                  value={insights.total_memories}
+                  sub="moments saved"
+                  accent="#60a5fa"
+                />
               </div>
             </div>
+
+            {/* Weekly activity */}
+            {insights.weekly_activity && (
+              <div>
+                <SectionTitle>This week</SectionTitle>
+                <WeekActivity activity={insights.weekly_activity} />
+              </div>
+            )}
+
+            {/* Favourite companion */}
+            {insights.favourite_companion && (
+              <div>
+                <SectionTitle>Your companion</SectionTitle>
+                <CompanionCard name={insights.favourite_companion} />
+              </div>
+            )}
 
             {/* Emotion breakdown */}
             {insights.emotion_breakdown.length > 0 && (
               <div>
-                <SectionTitle>Emotions</SectionTitle>
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-4 space-y-3.5">
+                <SectionTitle>Emotional themes</SectionTitle>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 space-y-4">
                   {insights.emotion_breakdown.map((item) => (
                     <div key={item.emotion}>
                       <div className="flex justify-between mb-1.5">
                         <span className="text-sm text-zinc-200 capitalize">{item.emotion}</span>
                         <span className="text-xs text-zinc-500">{item.pct.toFixed(0)}%</span>
                       </div>
-                      <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                      <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
                         <motion.div
                           className="h-full bg-amber-500 rounded-full"
                           initial={{ width: 0 }}
@@ -129,15 +212,15 @@ export function InsightsScreen() {
             {insights.top_tones.length > 0 && (
               <div>
                 <SectionTitle>Common tones</SectionTitle>
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-4">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4">
                   <div className="flex flex-wrap gap-2">
                     {insights.top_tones.map((t) => (
                       <span
                         key={t.tone}
-                        className="text-xs px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded-full text-zinc-300"
+                        className="text-xs px-3 py-1.5 bg-zinc-800 border border-zinc-700/60 rounded-full text-zinc-300"
                       >
-                        {t.tone}
-                        <span className="text-zinc-600 ml-1">{t.count}x</span>
+                        {t.emoji} {t.tone}
+                        <span className="text-zinc-600 ml-1.5">{t.count}×</span>
                       </span>
                     ))}
                   </div>
@@ -145,15 +228,15 @@ export function InsightsScreen() {
               </div>
             )}
 
-            {/* Top voices */}
+            {/* Voices */}
             {insights.top_voices.length > 0 && (
               <div>
                 <SectionTitle>Voices used</SectionTitle>
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-4 divide-y divide-zinc-800">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 divide-y divide-zinc-800/80">
                   {insights.top_voices.map((v, i) => (
-                    <div key={v.name} className="flex items-center py-2.5 first:pt-0 last:pb-0">
-                      <span className="text-xs text-zinc-600 w-5">{i + 1}</span>
-                      <span className="text-sm text-zinc-200 flex-1">{v.name}</span>
+                    <div key={v.name} className="flex items-center py-3 first:pt-0 last:pb-0">
+                      <span className="text-xs text-zinc-700 w-5 font-mono">{i + 1}</span>
+                      <span className="text-sm text-zinc-200 flex-1 font-medium">{v.name}</span>
                       <span className="text-xs text-zinc-500">{v.count} sessions</span>
                     </div>
                   ))}
@@ -163,18 +246,18 @@ export function InsightsScreen() {
 
             {/* Session stats */}
             <div>
-              <SectionTitle>Session stats</SectionTitle>
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-4 divide-y divide-zinc-800">
-                <div className="flex justify-between items-center py-2.5 first:pt-0">
-                  <span className="text-sm text-zinc-400">Avg messages per session</span>
-                  <span className="text-sm font-semibold text-white">{insights.average_session_length}</span>
-                </div>
-                <div className="flex justify-between items-center py-2.5">
+              <SectionTitle>Session details</SectionTitle>
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 divide-y divide-zinc-800/80">
+                <div className="flex justify-between items-center py-3 first:pt-0">
                   <span className="text-sm text-zinc-400">Total messages</span>
                   <span className="text-sm font-semibold text-white">{insights.total_messages}</span>
                 </div>
+                <div className="flex justify-between items-center py-3">
+                  <span className="text-sm text-zinc-400">Avg session length</span>
+                  <span className="text-sm font-semibold text-white">{insights.average_session_length} min</span>
+                </div>
                 {insights.most_active_style && (
-                  <div className="flex justify-between items-center py-2.5 last:pb-0">
+                  <div className="flex justify-between items-center py-3 last:pb-0">
                     <span className="text-sm text-zinc-400">Favourite style</span>
                     <span className="text-sm font-semibold text-white capitalize">{insights.most_active_style}</span>
                   </div>

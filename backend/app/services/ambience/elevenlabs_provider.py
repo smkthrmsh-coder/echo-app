@@ -22,35 +22,34 @@ class ElevenLabsAmbienceProvider(AmbienceProvider):
         logger.info(f"Generating ambience | prompt={prompt[:60]!r} | duration={duration_seconds}s")
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
-        # ElevenLabs sound generation supports 0.5 to 22 seconds per request
-        # For longer ambience, we generate a chunk and it will be looped by the mixer
         clamped_duration = min(max(duration_seconds, 0.5), 22.0)
-
-        payload = {
-            "text": prompt,
-            "duration_seconds": clamped_duration,
-            "prompt_influence": 0.3,
-        }
+        fallback_prompt = "soft gentle ambient background texture"
+        prompts_to_try = [prompt, fallback_prompt]
 
         async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                SOUND_GEN_URL,
-                json=payload,
-                headers={
-                    "xi-api-key": self._api_key,
-                    "Content-Type": "application/json",
-                },
-            )
+            for attempt, try_prompt in enumerate(prompts_to_try):
+                payload = {
+                    "text": try_prompt,
+                    "duration_seconds": clamped_duration,
+                    "prompt_influence": 0.3,
+                }
+                try:
+                    response = await client.post(
+                        SOUND_GEN_URL,
+                        json=payload,
+                        headers={
+                            "xi-api-key": self._api_key,
+                            "Content-Type": "application/json",
+                        },
+                    )
+                    if response.status_code == 200:
+                        Path(output_path).write_bytes(response.content)
+                        logger.info(f"Ambience saved (attempt {attempt + 1}): {output_path} ({len(response.content):,} bytes)")
+                        return output_path
+                    logger.warning(
+                        f"Ambience attempt {attempt + 1} failed: HTTP {response.status_code} — {response.text[:300]}"
+                    )
+                except Exception as exc:
+                    logger.warning(f"Ambience attempt {attempt + 1} exception: {exc}")
 
-            if response.status_code != 200:
-                logger.error(
-                    f"ElevenLabs Sound API error: {response.status_code} — {response.text[:200]}"
-                )
-                raise RuntimeError(
-                    f"Ambience generation failed: HTTP {response.status_code}"
-                )
-
-            Path(output_path).write_bytes(response.content)
-
-        logger.info(f"Ambience saved: {output_path} ({len(response.content):,} bytes)")
-        return output_path
+        raise RuntimeError(f"Ambience generation failed after {len(prompts_to_try)} attempts")

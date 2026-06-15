@@ -4,7 +4,7 @@ Templates are hardcoded; user progress is stored in user_journeys table.
 """
 
 import json
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from pathlib import Path
 
 import anthropic as anthropic_sdk
@@ -34,6 +34,8 @@ JOURNEY_TEMPLATES = [
         "emoji": "🌙",
         "tagline": "Wind down. Rest deeper. Wake better.",
         "description": "A gentle 7-day program to build a calming bedtime ritual and improve sleep quality.",
+        "outcome": "Wake up rested and energised every day",
+        "tags": ["sleep", "rest", "peace", "calm", "anxiety"],
         "duration_days": 7,
         "category": "wellness",
         "color": "#6366F1",
@@ -53,6 +55,8 @@ JOURNEY_TEMPLATES = [
         "emoji": "💼",
         "tagline": "Walk in ready. Walk out proud.",
         "description": "7 days of mindset coaching to help you prepare, perform, and own the room.",
+        "outcome": "Walk into any interview feeling calm and capable",
+        "tags": ["confidence", "career", "focus", "motivation", "clarity"],
         "duration_days": 7,
         "category": "career",
         "color": "#F59E0B",
@@ -72,6 +76,8 @@ JOURNEY_TEMPLATES = [
         "emoji": "🌊",
         "tagline": "Less panic. More peace.",
         "description": "A 14-day companion for navigating anxiety with breathing, perspective, and calm.",
+        "outcome": "Real tools to handle anxious moments with clarity",
+        "tags": ["anxiety", "peace", "calm", "stress", "comfort", "listen"],
         "duration_days": 14,
         "category": "mental-health",
         "color": "#10B981",
@@ -98,6 +104,8 @@ JOURNEY_TEMPLATES = [
         "emoji": "🌱",
         "tagline": "Heal at your own pace.",
         "description": "A 14-day journey through grief, healing, and rediscovering yourself.",
+        "outcome": "Rediscover yourself and move forward with peace",
+        "tags": ["comfort", "healing", "grief", "listen", "peace"],
         "duration_days": 14,
         "category": "relationships",
         "color": "#EC4899",
@@ -124,6 +132,8 @@ JOURNEY_TEMPLATES = [
         "emoji": "🎯",
         "tagline": "Enter flow. Do your best work.",
         "description": "7 days of focus rituals, procrastination busting, and peak performance mindset.",
+        "outcome": "Enter flow state and produce your best work consistently",
+        "tags": ["focus", "productivity", "energy", "clarity", "motivation"],
         "duration_days": 7,
         "category": "productivity",
         "color": "#8B5CF6",
@@ -143,6 +153,8 @@ JOURNEY_TEMPLATES = [
         "emoji": "⚡",
         "tagline": "Own who you are.",
         "description": "A 21-day journey to build genuine self-belief from the inside out.",
+        "outcome": "Genuine self-belief that lasts long after the program ends",
+        "tags": ["confidence", "motivation", "encouragement", "energy", "clarity"],
         "duration_days": 21,
         "category": "personal-growth",
         "color": "#F97316",
@@ -184,6 +196,8 @@ class JourneyTemplate(BaseModel):
     emoji: str
     tagline: str
     description: str
+    outcome: str
+    tags: list[str]
     duration_days: int
     category: str
     color: str
@@ -199,6 +213,9 @@ class UserJourneyOut(BaseModel):
     started_at: str
     last_session_at: str | None
     today_prompt: str | None
+    remaining_days: int
+    progress_pct: int
+    estimated_completion: str | None
 
 
 class StreakOut(BaseModel):
@@ -235,6 +252,10 @@ def _uj_to_out(uj: UserJourney) -> UserJourneyOut:
     completed = json.loads(uj.completed_days or "[]")
     prompts = template.get("daily_prompts", [])
     today_prompt = prompts[uj.current_day - 1] if 0 < uj.current_day <= len(prompts) else None
+    duration_days = template.get("duration_days", 1)
+    remaining_days = max(0, duration_days - len(completed))
+    progress_pct = round(len(completed) / duration_days * 100) if duration_days > 0 else 0
+    estimated_completion = (date.today() + timedelta(days=remaining_days)).isoformat() if remaining_days > 0 else None
     return UserJourneyOut(
         id=uj.id,
         journey_slug=uj.journey_slug,
@@ -245,6 +266,9 @@ def _uj_to_out(uj: UserJourney) -> UserJourneyOut:
         started_at=uj.started_at.isoformat(),
         last_session_at=uj.last_session_at.isoformat() if uj.last_session_at else None,
         today_prompt=today_prompt,
+        remaining_days=remaining_days,
+        progress_pct=progress_pct,
+        estimated_completion=estimated_completion,
     )
 
 
@@ -535,6 +559,56 @@ def get_journey_audio(session_id: str) -> FileResponse:
     if not audio_path.exists():
         raise HTTPException(status_code=404, detail="Audio file not found")
     return FileResponse(path=str(audio_path), media_type="audio/mpeg", filename=f"{session_id}.mp3")
+
+
+_EMOTION_TO_SLUGS: dict[str, list[str]] = {
+    "sleep": ["better-sleep"],
+    "peace": ["better-sleep", "anxiety-relief"],
+    "anxious": ["anxiety-relief"],
+    "anxiety": ["anxiety-relief"],
+    "confidence": ["self-confidence", "interview-confidence"],
+    "motivation": ["self-confidence", "deep-focus"],
+    "focus": ["deep-focus"],
+    "clarity": ["deep-focus", "anxiety-relief"],
+    "comfort": ["breakup-recovery", "anxiety-relief"],
+    "energy": ["deep-focus", "self-confidence"],
+    "encouragement": ["self-confidence"],
+    "listen": ["breakup-recovery", "anxiety-relief"],
+    "other": ["self-confidence", "anxiety-relief"],
+}
+
+_SLUG_REASONS: dict[str, str] = {
+    "better-sleep": "Matches your focus on rest and peace",
+    "anxiety-relief": "Aligned with your emotional patterns",
+    "self-confidence": "For your confidence journey",
+    "interview-confidence": "Aligned with your career goals",
+    "deep-focus": "Supports your need for clarity and focus",
+    "breakup-recovery": "For emotional healing and reflection",
+}
+
+
+@router.get("/journeys/recommendations", tags=["journeys"])
+def get_journey_recommendations(db: Session = Depends(get_db)) -> list[dict]:
+    """Return up to 2 recommended journeys based on recent conversation emotions."""
+    from collections import Counter
+    from app.db.models import Conversation
+
+    recent = db.query(Conversation).order_by(Conversation.created_at.desc()).limit(10).all()
+    emotions = [c.emotion for c in recent if c.emotion]
+
+    counts: Counter = Counter()
+    for emotion in emotions:
+        for slug in _EMOTION_TO_SLUGS.get(emotion, []):
+            counts[slug] += 1
+
+    if not counts:
+        return [
+            {"slug": "anxiety-relief", "reason": "Popular for finding daily calm"},
+            {"slug": "self-confidence", "reason": "Build lasting self-belief"},
+        ]
+
+    top = counts.most_common(2)
+    return [{"slug": slug, "reason": _SLUG_REASONS.get(slug, "Recommended for you")} for slug, _ in top]
 
 
 @router.get("/streaks", response_model=StreakOut, tags=["journeys"])

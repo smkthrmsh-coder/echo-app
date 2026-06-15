@@ -4,6 +4,7 @@ Locked until 5 conversations; unlocks progressively.
 """
 
 from collections import Counter
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -33,6 +34,8 @@ class InsightsOut(BaseModel):
     most_active_style: str
     average_session_length: float  # minutes
     total_audio_minutes: float
+    favourite_companion: str
+    weekly_activity: list[bool]  # 7 booleans — oldest to newest
 
 
 TONE_EMOJI = {
@@ -62,6 +65,8 @@ def get_insights(db: Session = Depends(get_db)) -> InsightsOut:
             most_active_style="",
             average_session_length=0.0,
             total_audio_minutes=0.0,
+            favourite_companion="",
+            weekly_activity=[False] * 7,
         )
 
     all_messages = db.query(Message).all()
@@ -111,6 +116,17 @@ def get_insights(db: Session = Depends(get_db)) -> InsightsOut:
     avg_session = (total_audio_seconds / max(len(durations), 1)) / 60
     total_audio_minutes = total_audio_seconds / 60
 
+    # Favourite companion (most-used voice)
+    favourite_companion = top_voices[0]["name"] if top_voices else ""
+
+    # 7-day activity (oldest → newest)
+    today = date.today()
+    streak_dates = {row.date_str for row in db.query(DailyStreak).all()}
+    weekly_activity = [
+        (today - timedelta(days=6 - i)).isoformat() in streak_dates
+        for i in range(7)
+    ]
+
     return InsightsOut(
         locked=False,
         conversations_until_unlock=0,
@@ -124,4 +140,6 @@ def get_insights(db: Session = Depends(get_db)) -> InsightsOut:
         most_active_style=most_active_style,
         average_session_length=round(avg_session, 1),
         total_audio_minutes=round(total_audio_minutes, 1),
+        favourite_companion=favourite_companion,
+        weekly_activity=weekly_activity,
     )

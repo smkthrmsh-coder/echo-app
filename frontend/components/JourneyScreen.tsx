@@ -5,20 +5,25 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
 import { useEchoStore } from "@/store/useEchoStore";
 import { JourneySessionPlayer } from "./home/JourneySessionPlayer";
+import { fetchJourneyRecommendations } from "@/lib/api";
 import type { JourneyTemplate } from "@/types";
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 function StreakBadge({ streak }: { streak: number }) {
   return (
-    <div className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 mb-5">
+    <div className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3.5 mb-5">
       <div>
         <p className="text-[13px] font-semibold text-white">
-          {streak} day{streak !== 1 ? "s" : ""} streak
+          {streak} day{streak !== 1 ? "s" : ""} in a row
         </p>
         <p className="text-xs text-zinc-500 mt-0.5">Keep showing up — you&apos;re building something real.</p>
       </div>
-      <div className="flex flex-col items-center">
-        <span className="text-xl font-bold text-amber-400">{streak}</span>
-        <span className="text-[10px] text-zinc-600 uppercase tracking-widest">days</span>
+      <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+        <span className="text-lg">🔥</span>
       </div>
     </div>
   );
@@ -34,33 +39,39 @@ function ActiveJourneyCard({ onOpenSession }: { onOpenSession: (slug: string) =>
 
   if (!activeJourney) return null;
 
-  const { journey, current_day, completed_days } = activeJourney;
-  const progress = completed_days.length / journey.duration_days;
+  const { journey, current_day, completed_days, remaining_days, progress_pct, estimated_completion } = activeJourney;
   const todayDone = completed_days.includes(current_day);
 
   return (
     <div className="mb-6">
-      <p className="text-xs text-zinc-500 uppercase tracking-widest mb-3">Active Program</p>
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-        <div className="px-5 pt-5 pb-4">
-          {/* Title row */}
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <p className="text-[15px] font-bold text-white leading-tight">{journey.title}</p>
-              <p className="text-xs text-zinc-500 mt-0.5">Day {current_day} of {journey.duration_days}</p>
+      <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-3">Active Program</p>
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        {/* Color accent strip */}
+        <div className="h-1 w-full" style={{ backgroundColor: journey.color }} />
+
+        <div className="px-5 pt-4 pb-4">
+          {/* Header */}
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">{journey.emoji}</span>
+              <div>
+                <p className="text-[15px] font-bold text-white leading-tight">{journey.title}</p>
+                <p className="text-xs text-zinc-500 mt-0.5">Day {current_day} of {journey.duration_days}</p>
+              </div>
             </div>
-            <span className="text-xs font-semibold text-zinc-400 bg-zinc-800 rounded-full px-2.5 py-1">
-              {Math.round(progress * 100)}%
+            <span className="text-xs font-bold tabular-nums" style={{ color: journey.color }}>
+              {progress_pct}%
             </span>
           </div>
 
           {/* Progress bar */}
-          <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-4">
+          <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden mb-3">
             <motion.div
-              className="h-full rounded-full bg-amber-500"
+              className="h-full rounded-full"
+              style={{ backgroundColor: journey.color }}
               initial={{ width: 0 }}
-              animate={{ width: `${progress * 100}%` }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
+              animate={{ width: `${progress_pct}%` }}
+              transition={{ duration: 0.7, ease: "easeOut" }}
             />
           </div>
 
@@ -69,15 +80,43 @@ function ActiveJourneyCard({ onOpenSession }: { onOpenSession: (slug: string) =>
             {Array.from({ length: journey.duration_days }).map((_, i) => (
               <div
                 key={i}
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  completed_days.includes(i + 1) ? "bg-amber-500" : "bg-zinc-800"
-                }`}
+                className="w-2 h-2 rounded-full transition-colors"
+                style={{
+                  backgroundColor: completed_days.includes(i + 1) ? journey.color : "#27272a",
+                }}
               />
             ))}
           </div>
 
+          {/* Outcome */}
+          <div className="flex items-start gap-2 mb-4 bg-zinc-800/40 rounded-lg px-3 py-2.5">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="flex-shrink-0 mt-0.5">
+              <path d="M7 1l1.6 3.3L12 4.9l-2.5 2.4.6 3.4L7 9.1 3.9 10.7l.6-3.4L2 4.9l3.4-.6L7 1z"
+                fill={journey.color} opacity="0.8" />
+            </svg>
+            <p className="text-xs text-zinc-400 leading-relaxed">{journey.outcome}</p>
+          </div>
+
+          {/* Meta row */}
+          <div className="flex gap-4 mb-4">
+            <div>
+              <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Remaining</p>
+              <p className="text-sm font-semibold text-zinc-300 mt-0.5">{remaining_days} days</p>
+            </div>
+            {estimated_completion && (
+              <div>
+                <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Completes</p>
+                <p className="text-sm font-semibold text-zinc-300 mt-0.5">{formatDate(estimated_completion)}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Done</p>
+              <p className="text-sm font-semibold text-zinc-300 mt-0.5">{completed_days.length} of {journey.duration_days}</p>
+            </div>
+          </div>
+
           {todayDone ? (
-            <div className="flex items-center gap-2 py-2.5 px-4 bg-zinc-800/50 rounded-lg">
+            <div className="flex items-center gap-2 py-2.5 px-4 bg-green-500/10 border border-green-500/20 rounded-lg">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <circle cx="7" cy="7" r="6.25" stroke="#4ade80" strokeWidth="1.5" />
                 <path d="M4.5 7l2 2 3-3" stroke="#4ade80" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -88,7 +127,8 @@ function ActiveJourneyCard({ onOpenSession }: { onOpenSession: (slug: string) =>
             <motion.button
               whileTap={{ scale: 0.98 }}
               onClick={() => onOpenSession(activeJourney.journey_slug)}
-              className="w-full py-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-xl text-black text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+              style={{ backgroundColor: journey.color }}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
                 <path d="M3 2l9 5-9 5z" />
@@ -98,8 +138,7 @@ function ActiveJourneyCard({ onOpenSession }: { onOpenSession: (slug: string) =>
           )}
         </div>
 
-        <div className="px-5 py-3 border-t border-zinc-800 flex justify-between items-center">
-          <p className="text-xs text-zinc-500">{completed_days.length} of {journey.duration_days} days complete</p>
+        <div className="px-5 py-3 border-t border-zinc-800 flex justify-end">
           <button
             onClick={() => abandonJourney(activeJourney.journey_slug)}
             className="text-xs text-zinc-600 hover:text-red-400 transition-colors"
@@ -112,25 +151,82 @@ function ActiveJourneyCard({ onOpenSession }: { onOpenSession: (slug: string) =>
   );
 }
 
-function JourneyCard({ journey, onStart, loading }: { journey: JourneyTemplate; onStart: () => void; loading: boolean }) {
+function JourneyCard({
+  journey,
+  onStart,
+  loading,
+  recommendedReason,
+}: {
+  journey: JourneyTemplate;
+  onStart: () => void;
+  loading: boolean;
+  recommendedReason?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+      {/* Color strip */}
+      <div className="h-0.5 w-full" style={{ backgroundColor: journey.color }} />
+
       <div className="px-5 py-4">
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex-1 min-w-0 pr-3">
-            <p className="text-[14px] font-semibold text-white leading-tight">{journey.title}</p>
+        {/* Recommended badge */}
+        {recommendedReason && (
+          <div className="flex items-center gap-1.5 mb-3">
+            <span className="text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full text-black"
+              style={{ backgroundColor: journey.color }}>
+              For you
+            </span>
+            <span className="text-[11px] text-zinc-500">{recommendedReason}</span>
+          </div>
+        )}
+
+        {/* Header */}
+        <div className="flex items-start gap-3 mb-2.5">
+          <span className="text-xl flex-shrink-0">{journey.emoji}</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between">
+              <p className="text-[14px] font-semibold text-white leading-tight">{journey.title}</p>
+              <span className="text-[11px] text-zinc-500 ml-2 flex-shrink-0 mt-0.5">{journey.duration_days}d</span>
+            </div>
             <p className="text-xs text-zinc-500 mt-0.5">{journey.tagline}</p>
           </div>
-          <span className="text-xs font-semibold text-zinc-400 bg-zinc-800 rounded-full px-2 py-0.5 flex-shrink-0">
-            {journey.duration_days} days
-          </span>
         </div>
-        <p className="text-xs text-zinc-500 mb-4 leading-relaxed">{journey.description}</p>
+
+        {/* Outcome */}
+        <p className="text-xs text-zinc-400 leading-relaxed mb-3">{journey.outcome}</p>
+
+        {/* Expandable description */}
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.p
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="text-xs text-zinc-500 leading-relaxed mb-3 overflow-hidden"
+            >
+              {journey.description}
+            </motion.p>
+          )}
+        </AnimatePresence>
+
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="text-[11px] text-zinc-600 hover:text-zinc-400 transition-colors mb-4"
+        >
+          {expanded ? "Less" : "More details"}
+        </button>
+
         <motion.button
           whileTap={{ scale: 0.98 }}
           onClick={onStart}
           disabled={loading}
-          className="w-full py-2.5 rounded-lg border border-zinc-700 text-zinc-300 text-sm font-medium hover:border-amber-500 hover:text-amber-400 transition-colors disabled:opacity-50"
+          className="w-full py-2.5 rounded-xl border text-sm font-medium transition-colors disabled:opacity-50"
+          style={{
+            borderColor: journey.color,
+            color: journey.color,
+          }}
         >
           {loading ? "Starting..." : "Start program"}
         </motion.button>
@@ -171,11 +267,13 @@ export function JourneyScreen() {
   );
 
   const [starting, setStarting] = useState<string | null>(null);
+  const [recommendations, setRecommendations] = useState<{ slug: string; reason: string }[]>([]);
 
   useEffect(() => {
     loadJourneys();
     loadActiveJourney();
     loadStreak();
+    fetchJourneyRecommendations().then(setRecommendations).catch(() => {});
   }, [loadJourneys, loadActiveJourney, loadStreak]);
 
   async function handleStart(slug: string) {
@@ -188,6 +286,15 @@ export function JourneyScreen() {
     }
   }
 
+  const recMap = Object.fromEntries(recommendations.map((r) => [r.slug, r.reason]));
+  const templates = journeyTemplates ?? [];
+  const availableTemplates = activeJourney
+    ? templates.filter((j) => j.slug !== activeJourney.journey_slug)
+    : templates;
+
+  const recommendedTemplates = availableTemplates.filter((j) => recMap[j.slug]);
+  const otherTemplates = availableTemplates.filter((j) => !recMap[j.slug]);
+
   return (
     <div className="relative flex flex-col h-full overflow-hidden">
       <div className="px-6 pt-6 pb-4">
@@ -195,7 +302,7 @@ export function JourneyScreen() {
         <p className="text-xs text-zinc-500 mt-0.5">Guided journeys that build with you.</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 pb-6">
+      <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-5">
         {/* Streak */}
         {streak && streak.current_streak > 0 && (
           <StreakBadge streak={streak.current_streak} />
@@ -210,43 +317,51 @@ export function JourneyScreen() {
           )}
         </AnimatePresence>
 
-        {/* Browse */}
-        {!activeJourney && (
+        {journeysLoading && templates.length === 0 ? (
+          <div className="text-center py-12 text-zinc-600 text-sm">Loading...</div>
+        ) : (
           <>
-            <p className="text-xs text-zinc-500 uppercase tracking-widest mb-3">All programs</p>
-            {journeysLoading ? (
-              <div className="text-center py-12 text-zinc-600 text-sm">Loading...</div>
-            ) : (
-              <div className="space-y-2.5">
-                {(journeyTemplates ?? []).map((j) => (
-                  <JourneyCard
-                    key={j.slug}
-                    journey={j}
-                    onStart={() => handleStart(j.slug)}
-                    loading={starting === j.slug}
-                  />
-                ))}
+            {/* Recommended for you */}
+            {!activeJourney && recommendedTemplates.length > 0 && (
+              <div>
+                <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-3">Recommended for you</p>
+                <div className="space-y-3">
+                  {recommendedTemplates.map((j) => (
+                    <JourneyCard
+                      key={j.slug}
+                      journey={j}
+                      onStart={() => handleStart(j.slug)}
+                      loading={starting === j.slug}
+                      recommendedReason={recMap[j.slug]}
+                    />
+                  ))}
+                </div>
               </div>
             )}
-          </>
-        )}
 
-        {/* Other programs while one is active */}
-        {activeJourney && (journeyTemplates ?? []).length > 1 && (
-          <>
-            <p className="text-xs text-zinc-500 uppercase tracking-widest mb-3 mt-2">Other programs</p>
-            <div className="space-y-2">
-              {(journeyTemplates ?? [])
-                .filter((j) => j.slug !== activeJourney.journey_slug)
-                .map((j) => (
-                  <JourneyCard
-                    key={j.slug}
-                    journey={j}
-                    onStart={() => handleStart(j.slug)}
-                    loading={starting === j.slug}
-                  />
-                ))}
-            </div>
+            {/* All programs */}
+            {otherTemplates.length > 0 && (
+              <div>
+                <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-3">
+                  {activeJourney ? "Other programs" : recommendedTemplates.length > 0 ? "All programs" : "All programs"}
+                </p>
+                <div className="space-y-3">
+                  {otherTemplates.map((j) => (
+                    <JourneyCard
+                      key={j.slug}
+                      journey={j}
+                      onStart={() => handleStart(j.slug)}
+                      loading={starting === j.slug}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* When active journey and no other templates */}
+            {activeJourney && availableTemplates.length === 0 && (
+              <p className="text-xs text-zinc-600 text-center py-4">All programs started!</p>
+            )}
           </>
         )}
       </div>
