@@ -100,3 +100,5 @@ class SendMessageRequest(BaseModel):
 class UpdateConversationRequest(BaseModel):
     title: str | None = None
     is_pinned: bool | None = None
+    reset_voice: bool = False
+    gender: str | None = None

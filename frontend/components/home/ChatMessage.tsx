@@ -9,6 +9,7 @@ import { TONE_COLORS } from "@/types";
 interface Props {
   message: EchoMessage;
   onSaveMemory: (msg: EchoMessage) => void;
+  onAudioPlay?: (audio: HTMLAudioElement) => void;
   autoPlay?: boolean;
 }
 
@@ -49,7 +50,7 @@ function cleanDisplay(text: string): string {
 
 const SPEEDS = [0.8, 1.0, 1.25, 1.5] as const;
 
-export function ChatMessage({ message, onSaveMemory, autoPlay = false }: Props) {
+export function ChatMessage({ message, onSaveMemory, onAudioPlay, autoPlay = false }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -132,7 +133,7 @@ export function ChatMessage({ message, onSaveMemory, autoPlay = false }: Props) 
           <audio
             ref={audioRef}
             src={audioUrl}
-            onPlay={() => setPlaying(true)}
+            onPlay={() => { setPlaying(true); if (audioRef.current) onAudioPlay?.(audioRef.current); }}
             onPause={() => setPlaying(false)}
             onEnded={() => { setPlaying(false); setProgress(0); }}
             onTimeUpdate={() => {

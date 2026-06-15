@@ -81,7 +81,7 @@ export async function getConversation(id: string): Promise<ConversationDetail> {
 
 export async function updateConversation(
   id: string,
-  data: { title?: string; is_pinned?: boolean },
+  data: { title?: string; is_pinned?: boolean; reset_voice?: boolean; gender?: string },
 ): Promise<ConversationDetail> {
   return apiFetch<ConversationDetail>(`/api/conversations/${id}`, {
     method: "PATCH",

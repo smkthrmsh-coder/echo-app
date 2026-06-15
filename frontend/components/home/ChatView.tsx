@@ -64,6 +64,21 @@ export function ChatView() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const mediaRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  function stopCurrentAudio() {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+  }
+
+  function handleAudioPlay(audio: HTMLAudioElement) {
+    if (currentAudioRef.current && currentAudioRef.current !== audio) {
+      currentAudioRef.current.pause();
+    }
+    currentAudioRef.current = audio;
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -72,11 +87,13 @@ export function ChatView() {
   function handleSend() {
     const text = input.trim();
     if (!text || isSending) return;
+    stopCurrentAudio();
     setInput("");
     sendMessage(text);
   }
 
   async function startRecording() {
+    stopCurrentAudio();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);
@@ -145,6 +162,7 @@ export function ChatView() {
             key={msg.id}
             message={msg}
             onSaveMemory={openMemoryModal}
+            onAudioPlay={handleAudioPlay}
             autoPlay={msg.role === "assistant" && i === lastAssistantIndex && i === messages.length - 1}
           />
         ))}

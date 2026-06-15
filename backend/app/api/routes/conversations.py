@@ -162,6 +162,11 @@ def update_conversation(
         conv.title = request.title
     if request.is_pinned is not None:
         conv.is_pinned = request.is_pinned
+    if request.reset_voice:
+        conv.voice_id = ""
+        conv.voice_name = ""
+    if request.gender is not None:
+        conv.gender = request.gender
     db.commit()
     msgs = db.query(Message).filter(Message.conversation_id == conv.id).order_by(Message.created_at).all()
     return _conv_to_out(conv, msgs)

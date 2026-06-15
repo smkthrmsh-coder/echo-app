@@ -200,7 +200,16 @@ export const useEchoStore = create<EchoStore>()(
     }),
 
   voicePreference: "auto",
-  setVoicePreference: (p) => set({ voicePreference: p }),
+  setVoicePreference: (p) => {
+    set({ voicePreference: p });
+    const { conversationId } = get();
+    if (conversationId) {
+      updateConversation(conversationId, {
+        reset_voice: true,
+        gender: p !== "auto" ? p : undefined,
+      }).catch(() => {});
+    }
+  },
   communicationStylePreference: "auto",
   setCommunicationStylePreference: (s) => set({ communicationStylePreference: s }),
 
