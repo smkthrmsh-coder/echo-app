@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { resolveAudioUrl } from "@/lib/api";
 import type { EchoMessage } from "@/types";
 import { TONE_COLORS } from "@/types";
-import { connectAudioElement, stopAmbient } from "@/hooks/useAmbientSound";
+import { connectAndPlay, stopAmbient } from "@/hooks/useAmbientSound";
 
 interface Props {
   message: EchoMessage;
@@ -89,25 +89,27 @@ export function ChatMessage({
   const audioUrl = message.audio_url ? resolveAudioUrl(message.audio_url) : null;
   const accentColor = TONE_COLORS[message.tone] ?? "#d97706";
 
-  // Auto-play: connect to AudioContext (unlocked during original button press) so iOS allows play()
+  // Auto-play via AudioContext (bypasses iOS autoplay restriction)
   useEffect(() => {
     if (!autoPlay || !audioUrl || !audioRef.current) return;
     const audio = audioRef.current;
 
-    // Connect to the shared AudioContext — inherits the gesture-unlock from button press
-    connectAudioElement(audio);
-
-    const attemptPlay = () => {
-      audio.play().catch(() => {
-        // Autoplay still blocked (e.g. user hasn't interacted at all) — play button is visible
+    const tryPlay = () => {
+      // connectAndPlay awaits ctx.resume() then calls play() — works on iOS
+      connectAndPlay(audio).then((started) => {
+        if (!started) {
+          // AudioContext not available (e.g. first load before any gesture)
+          // Try native play as last resort — will work on desktop, may fail on iOS
+          audio.play().catch(() => {});
+        }
       });
     };
 
     if (audio.readyState >= 2) {
-      attemptPlay();
+      tryPlay();
     } else {
-      audio.addEventListener("canplay", attemptPlay, { once: true });
-      return () => audio.removeEventListener("canplay", attemptPlay);
+      audio.addEventListener("canplay", tryPlay, { once: true });
+      return () => audio.removeEventListener("canplay", tryPlay);
     }
   }, [autoPlay, audioUrl]);
 

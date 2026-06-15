@@ -102,25 +102,36 @@ export function stopAmbient(durationMs = 1200): void {
 }
 
 /**
- * Connect an <audio> element to the shared AudioContext.
+ * Connect an <audio> element to the shared AudioContext, resume it, then play.
  *
- * This is the key trick for iOS autoplay:
- * - AudioContext was unlocked during the user's button-press gesture
- * - Any MediaElementSource connected to it inherits that unlocked state
- * - So audio.play() succeeds even seconds/minutes after the original gesture
+ * Why this works on iOS:
+ * - AudioContext was created + unlocked during the "Hear What You Need" button press
+ * - iOS only requires a gesture to CREATE the context, not to use it later
+ * - MediaElementSource connected to an unlocked context can play at any time
+ * - We await ctx.resume() before play() so the context is guaranteed running
  *
- * Safe to call multiple times — only connects once per element.
+ * Returns true if playback started successfully.
  */
-export function connectAudioElement(el: HTMLAudioElement): void {
-  if (typeof window === "undefined" || _connectedElements.has(el)) return;
+export async function connectAndPlay(el: HTMLAudioElement): Promise<boolean> {
+  if (typeof window === "undefined") return false;
   try {
     const ctx = getOrCreateContext();
-    if (ctx.state === "suspended") ctx.resume();
-    const source = ctx.createMediaElementSource(el);
-    // Route voice audio directly to speakers (bypassing master gain / ambient)
-    source.connect(ctx.destination);
-    _connectedElements.add(el);
+
+    // Must be awaited — iOS context can be suspended and resume() is async
+    if (ctx.state === "suspended") await ctx.resume();
+    if (ctx.state !== "running") return false;
+
+    // Connect once — createMediaElementSource throws if called twice on same element
+    if (!_connectedElements.has(el)) {
+      const source = ctx.createMediaElementSource(el);
+      source.connect(ctx.destination);
+      _connectedElements.add(el);
+    }
+
+    await el.play();
+    return true;
   } catch {
-    // createMediaElementSource can throw if el is already connected or ctx is closed
+    // Falls back to native play button — visible to user
+    return false;
   }
 }
