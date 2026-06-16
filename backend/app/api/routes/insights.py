@@ -10,10 +10,11 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.db.database import get_db
-from app.db.models import Conversation, Message, Memory, DailyStreak
+from app.api.deps import get_current_user
 from app.api.routes.journeys import _calc_streak
 from app.core.logging import get_logger
+from app.db.database import get_db
+from app.db.models import Conversation, DailyStreak, Memory, Message, User
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -46,7 +47,7 @@ TONE_EMOJI = {
 
 
 @router.get("/insights", response_model=InsightsOut, tags=["insights"])
-def get_insights(db: Session = Depends(get_db)) -> InsightsOut:
+def get_insights(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> InsightsOut:
     total_conversations = db.query(Conversation).count()
     conversations_until_unlock = max(0, UNLOCK_THRESHOLD - total_conversations)
     locked = total_conversations < UNLOCK_THRESHOLD

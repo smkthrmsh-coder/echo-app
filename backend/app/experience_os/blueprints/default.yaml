@@ -1,0 +1,6 @@
+identity:
+  slug: default
+  display_name: Default
+  category: general
+voice_configuration:
+  voice_intention: comfort

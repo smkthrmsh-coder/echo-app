@@ -43,6 +43,13 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "sqlite:///./voice_emotion.db"
 
+    # Auth
+    jwt_secret_key: str = "echo-dev-secret-change-in-prod"
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    backend_url: str = "http://localhost:8000"
+    frontend_url: str = "http://localhost:3000"
+
     # Obsidian
     obsidian_vault_path: str = "/Users/samy/Library/Mobile Documents/iCloud~md~obsidian/EchoVault"
 

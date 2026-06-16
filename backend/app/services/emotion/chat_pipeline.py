@@ -6,13 +6,22 @@ Ambience is handled browser-side (removed from server critical path for responsi
 import time
 import uuid
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.models.emotion import EmotionProfile
-from app.services.audio.mixer import get_audio_duration
+from app.services.audio.mixer import (
+    DEFAULT_TRAILING_SILENCE_MS,
+    TRAILING_SILENCE_MS,
+    append_trailing_silence,
+    get_audio_duration,
+)
 from app.services.llm.chat_provider import ChatProvider
 from app.services.tts.factory import get_tts_provider
+
+if TYPE_CHECKING:
+    from app.experience_os.composer import ComposedPrompt
 
 logger = get_logger(__name__)
 
@@ -28,6 +37,9 @@ async def run_chat_pipeline(
     locked_voice_id: str | None = None,
     locked_voice_name: str | None = None,
     intention: str | None = None,
+    brain_context: str | None = None,
+    composed_prompt: "ComposedPrompt | None" = None,
+    pause_behaviour_enabled: bool = False,
 ) -> tuple[EmotionProfile, str, float]:
     """
     Chat reply pipeline: message → EmotionProfile + voice audio.
@@ -53,6 +65,9 @@ async def run_chat_pipeline(
         locked_voice_id=locked_voice_id,
         locked_voice_name=locked_voice_name,
         intention=intention,
+        brain_context=brain_context,
+        composed_prompt=composed_prompt,
+        pause_behaviour_enabled=pause_behaviour_enabled,
     )
     t1 = time.monotonic()
     logger.info(
@@ -70,6 +85,9 @@ async def run_chat_pipeline(
     t2 = time.monotonic()
 
     duration = get_audio_duration(final_path)
+    if pause_behaviour_enabled:
+        silence_ms = TRAILING_SILENCE_MS.get(intention, DEFAULT_TRAILING_SILENCE_MS)
+        duration = append_trailing_silence(final_path, silence_ms)
     logger.info(
         f"[{generation_id}] Chat pipeline done | total={t2-t0:.2f}s | duration={duration:.1f}s"
     )

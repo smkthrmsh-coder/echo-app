@@ -54,6 +54,24 @@ function MainApp() {
 
 export default function EchoApp() {
   const screen = useEchoStore((s) => s.screen);
+  const loginWithToken = useEchoStore((s) => s.loginWithToken);
+
+  // Handle Google OAuth redirect: ?token=<jwt> or ?auth_error=<reason>
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    const authError = params.get("auth_error");
+
+    if (token) {
+      // Remove token from URL before storing it
+      window.history.replaceState({}, "", "/");
+      loginWithToken(token, undefined, undefined);
+    } else if (authError) {
+      window.history.replaceState({}, "", "/");
+      // Error will surface through the normal login screen
+    }
+  }, [loginWithToken]);
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -61,7 +79,6 @@ export default function EchoApp() {
   }, []);
 
   return (
-    // Mobile: full black screen. Desktop: dark bg with centered phone frame.
     <div className="bg-black h-dvh md:bg-zinc-950 md:h-auto md:min-h-screen md:flex md:items-center md:justify-center md:p-4">
       <div
         className="relative bg-black overflow-hidden flex flex-col w-full h-dvh md:w-[390px] md:h-[844px] md:rounded-[40px]"
@@ -70,13 +87,11 @@ export default function EchoApp() {
             "0 0 0 1px rgba(255,255,255,0.06), 0 32px 80px rgba(0,0,0,0.8), 0 0 60px rgba(245,166,35,0.04)",
         }}
       >
-        {/* Dynamic Island / notch safe area — only on real phones, hidden inside desktop frame */}
         <div
           className="flex-shrink-0 md:hidden"
           style={{ height: "env(safe-area-inset-top, 0px)" }}
         />
 
-        {/* Screen content fills remaining height */}
         <div className="flex-1 relative overflow-hidden">
           <AnimatePresence mode="wait">
             {screen === "splash" && (

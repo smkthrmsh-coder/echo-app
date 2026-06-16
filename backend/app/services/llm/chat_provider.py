@@ -6,15 +6,23 @@ Voice continuity: locked_voice_id/name pins the same voice for the entire conver
 
 import json
 import re
+from typing import TYPE_CHECKING
 
 import anthropic
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.experience_os.services.prompt_service import DefaultPromptConstructionService
 from app.models.emotion import EmotionalTone, EmotionProfile, NarrationStyle, Pacing, VoiceSettings
+from app.services.llm.pacing import apply_pacing_markup
 from app.services.llm.voice_mapping import get_voice_for_intention
 
+if TYPE_CHECKING:
+    from app.experience_os.composer import ComposedPrompt
+
 logger = get_logger(__name__)
+
+_prompt_service = DefaultPromptConstructionService()
 
 TONE_AMBIENCE: dict[str, str] = {
     "energetic": "driving rhythmic pulse, electronic energy, momentum",
@@ -79,35 +87,6 @@ def _clean_script(text: str) -> str:
     return text.strip()
 
 
-_INTENTION_PACING: dict[str, dict] = {
-    # Slow, spacious — sleep, peace, grief
-    "sleep":  {"open": "1.2s", "sentence": "0.8s", "comma": "0.4s", "em": "0.6s", "ellipsis": "0.9s"},
-    "peace":  {"open": "1.0s", "sentence": "0.7s", "comma": "0.3s", "em": "0.5s", "ellipsis": "0.8s"},
-    "listen": {"open": "1.0s", "sentence": "0.7s", "comma": "0.35s", "em": "0.5s", "ellipsis": "0.8s"},
-    "comfort":{"open": "0.9s", "sentence": "0.6s", "comma": "0.3s", "em": "0.45s", "ellipsis": "0.7s"},
-    # Neutral
-    "focus":        {"open": "0.5s", "sentence": "0.4s", "comma": "0.15s", "em": "0.3s", "ellipsis": "0.5s"},
-    "clarity":      {"open": "0.5s", "sentence": "0.4s", "comma": "0.15s", "em": "0.3s", "ellipsis": "0.5s"},
-    "encouragement":{"open": "0.6s", "sentence": "0.4s", "comma": "0.2s",  "em": "0.35s", "ellipsis": "0.5s"},
-    # Energetic — less silence, more momentum
-    "motivation":   {"open": "0.3s", "sentence": "0.25s", "comma": "0.1s", "em": "0.2s", "ellipsis": "0.3s"},
-    "confidence":   {"open": "0.3s", "sentence": "0.25s", "comma": "0.1s", "em": "0.2s", "ellipsis": "0.3s"},
-    "energy":       {"open": "0.2s", "sentence": "0.2s",  "comma": "0.08s", "em": "0.15s", "ellipsis": "0.25s"},
-}
-_DEFAULT_PACING = {"open": "0.6s", "sentence": "0.45s", "comma": "0.2s", "em": "0.35s", "ellipsis": "0.55s"}
-
-
-def _apply_emotional_markup(script: str, intention: str | None = None) -> str:
-    """Inject ElevenLabs SSML break tags tuned to the emotional intention."""
-    p = _INTENTION_PACING.get(intention or "", _DEFAULT_PACING)
-    marked = f"<break time='{p['open']}'/> " + script
-    marked = re.sub(r"\. +", f". <break time='{p['sentence']}'/> ", marked)
-    marked = re.sub(r", +", f", <break time='{p['comma']}'/> ", marked)
-    marked = re.sub(r" — ", f" <break time='{p['em']}'/> — <break time='{p['comma']}'/> ", marked)
-    marked = re.sub(r"\.\.\. +", f"... <break time='{p['ellipsis']}'/> ", marked)
-    return marked
-
-
 class ChatProvider:
     def __init__(self) -> None:
         settings = get_settings()
@@ -125,12 +104,16 @@ class ChatProvider:
         locked_voice_id: str | None = None,
         locked_voice_name: str | None = None,
         intention: str | None = None,
+        brain_context: str | None = None,
+        composed_prompt: "ComposedPrompt | None" = None,
+        pause_behaviour_enabled: bool = False,
     ) -> EmotionProfile:
         style_str = ", ".join(speaking_styles) if speaking_styles else "warm and present"
         energy_desc = ["very gentle", "gentle", "balanced", "energetic", "very energetic"][energy_level - 1]
         style_note = f"Speaking style: {style_str}. Energy: {energy_desc}."
 
-        system = CHAT_EMOTIONAL_SYSTEM_PROMPT if emotional_mode else CHAT_SYSTEM_PROMPT
+        base_system = CHAT_EMOTIONAL_SYSTEM_PROMPT if emotional_mode else CHAT_SYSTEM_PROMPT
+        system = _prompt_service.build_system_prompt(brain_context, base_system, composed_prompt)
 
         messages = []
         for msg in history[-10:]:
@@ -170,7 +153,11 @@ class ChatProvider:
 
         clean = _clean_script(data.get("script", "I'm here with you."))
         # SSML markup tuned to intention for natural pacing
-        tts_script = _apply_emotional_markup(clean, intention=intention) if emotional_mode else clean
+        tts_script = (
+            apply_pacing_markup(clean, intention=intention)
+            if (emotional_mode or pause_behaviour_enabled)
+            else clean
+        )
 
         ambience_prompt = TONE_AMBIENCE.get(tone.value, "soft ambient background, warm and subtle")
 

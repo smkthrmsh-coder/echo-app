@@ -4,7 +4,7 @@ Templates are hardcoded; user progress is stored in user_journeys table.
 """
 
 import json
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import anthropic as anthropic_sdk
@@ -13,11 +13,12 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.core.config import get_settings
-from app.db.database import get_db
-from app.db.models import UserJourney, DailyStreak
 from app.core.logging import get_logger
-from app.models.emotion import EmotionProfile, EmotionalTone, NarrationStyle, Pacing, VoiceSettings
+from app.db.database import get_db
+from app.db.models import DailyStreak, User, UserJourney
+from app.models.emotion import EmotionalTone, EmotionProfile, NarrationStyle, Pacing, VoiceSettings
 from app.services.tts.factory import get_tts_provider
 
 router = APIRouter()
@@ -277,12 +278,12 @@ def _uj_to_out(uj: UserJourney) -> UserJourneyOut:
 # ---------------------------------------------------------------------------
 
 @router.get("/journeys", response_model=list[JourneyTemplate], tags=["journeys"])
-def list_journeys() -> list[JourneyTemplate]:
+def list_journeys(current_user: User = Depends(get_current_user)) -> list[JourneyTemplate]:
     return [JourneyTemplate(**{k: j[k] for k in JourneyTemplate.model_fields}) for j in JOURNEY_TEMPLATES]
 
 
 @router.get("/journeys/active", response_model=UserJourneyOut | None, tags=["journeys"])
-def get_active_journey(db: Session = Depends(get_db)) -> UserJourneyOut | None:
+def get_active_journey(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> UserJourneyOut | None:
     uj = db.query(UserJourney).filter(UserJourney.is_active == True).order_by(UserJourney.started_at.desc()).first()  # noqa: E712
     if not uj:
         return None
@@ -290,7 +291,7 @@ def get_active_journey(db: Session = Depends(get_db)) -> UserJourneyOut | None:
 
 
 @router.post("/journeys/{slug}/start", response_model=UserJourneyOut, tags=["journeys"])
-def start_journey(slug: str, db: Session = Depends(get_db)) -> UserJourneyOut:
+def start_journey(slug: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> UserJourneyOut:
     if slug not in JOURNEY_MAP:
         raise HTTPException(status_code=404, detail=f"Journey '{slug}' not found")
 
@@ -308,7 +309,7 @@ def start_journey(slug: str, db: Session = Depends(get_db)) -> UserJourneyOut:
 
 
 @router.post("/journeys/{slug}/checkin", response_model=UserJourneyOut, tags=["journeys"])
-def checkin_journey(slug: str, db: Session = Depends(get_db)) -> UserJourneyOut:
+def checkin_journey(slug: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> UserJourneyOut:
     uj = db.query(UserJourney).filter(
         UserJourney.journey_slug == slug,
         UserJourney.is_active == True,  # noqa: E712
@@ -344,7 +345,7 @@ def checkin_journey(slug: str, db: Session = Depends(get_db)) -> UserJourneyOut:
 
 
 @router.post("/journeys/{slug}/abandon", tags=["journeys"])
-def abandon_journey(slug: str, db: Session = Depends(get_db)) -> dict:
+def abandon_journey(slug: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
     uj = db.query(UserJourney).filter(
         UserJourney.journey_slug == slug,
         UserJourney.is_active == True,  # noqa: E712
@@ -515,7 +516,7 @@ async def _generate_session(slug: str, day: int, today_prompt: str, category: st
 
 
 @router.post("/journeys/{slug}/session", tags=["journeys"])
-async def generate_journey_session(slug: str, db: Session = Depends(get_db)) -> dict:
+async def generate_journey_session(slug: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
     if slug not in JOURNEY_MAP:
         raise HTTPException(status_code=404, detail=f"Journey '{slug}' not found")
 
@@ -588,9 +589,10 @@ _SLUG_REASONS: dict[str, str] = {
 
 
 @router.get("/journeys/recommendations", tags=["journeys"])
-def get_journey_recommendations(db: Session = Depends(get_db)) -> list[dict]:
+def get_journey_recommendations(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> list[dict]:
     """Return up to 2 recommended journeys based on recent conversation emotions."""
     from collections import Counter
+
     from app.db.models import Conversation
 
     recent = db.query(Conversation).order_by(Conversation.created_at.desc()).limit(10).all()
@@ -612,14 +614,14 @@ def get_journey_recommendations(db: Session = Depends(get_db)) -> list[dict]:
 
 
 @router.get("/streaks", response_model=StreakOut, tags=["journeys"])
-def get_streak(db: Session = Depends(get_db)) -> StreakOut:
+def get_streak(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> StreakOut:
     total = db.query(DailyStreak).count()
     current = _calc_streak(db)
     return StreakOut(current_streak=current, total_days=total)
 
 
 @router.post("/streaks/checkin", tags=["journeys"])
-def daily_checkin(db: Session = Depends(get_db)) -> dict:
+def daily_checkin(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
     today = _today()
     row = db.query(DailyStreak).filter(DailyStreak.date_str == today).first()
     if not row:

@@ -76,3 +76,17 @@ def get_audio_duration(audio_path: str) -> float:
     """Return duration in seconds for an audio file."""
     segment = AudioSegment.from_file(audio_path, format="mp3", codec="mp3")
     return len(segment) / 1000.0
+
+
+def append_trailing_silence(audio_path: str, silence_ms: int = 700) -> float:
+    """Append silence to the end of an audio file in place. Returns the new duration in seconds."""
+    segment = AudioSegment.from_file(audio_path, format="mp3", codec="mp3")
+    segment = segment + AudioSegment.silent(duration=silence_ms)
+    segment.export(audio_path, format="mp3", bitrate="192k")
+    return len(segment) / 1000.0
+
+
+# Sleep gets a distinctly longer, more gradual fade than every other intention's
+# default 700ms — everything else shares DEFAULT_TRAILING_SILENCE_MS.
+TRAILING_SILENCE_MS: dict[str, int] = {"sleep": 2500}
+DEFAULT_TRAILING_SILENCE_MS = 700

@@ -10,19 +10,57 @@ import type {
   TranscribeResponse,
   UserJourney,
 } from "@/types";
+import { getAuthToken } from "./auth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init?.headers as Record<string, string>),
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(body.detail ?? `HTTP ${res.status}`);
   }
   return res.json() as Promise<T>;
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  display_name: string;
+  avatar_url?: string | null;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
+}
+
+export async function apiSignup(email: string, password: string, display_name?: string): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>("/api/auth/signup", {
+    method: "POST",
+    body: JSON.stringify({ email, password, display_name }),
+  });
+}
+
+export async function apiLogin(email: string, password: string): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export function getGoogleAuthUrl(): string {
+  return `${API_BASE}/api/auth/google`;
 }
 
 // Legacy voice generation
@@ -36,7 +74,10 @@ export async function generateExperience(prompt: string): Promise<GenerateRespon
 export async function transcribeAudio(blob: Blob): Promise<TranscribeResponse> {
   const form = new FormData();
   form.append("audio", blob, "recording.webm");
-  const res = await fetch(`${API_BASE}/api/transcribe`, { method: "POST", body: form });
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}/api/transcribe`, { method: "POST", body: form, headers });
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(body.detail ?? `HTTP ${res.status}`);

@@ -1,10 +1,12 @@
 import json
 import re
+from typing import TYPE_CHECKING
 
 import anthropic
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.experience_os.services.prompt_service import DefaultPromptConstructionService
 from app.models.emotion import (
     EmotionalTone,
     EmotionProfile,
@@ -15,7 +17,12 @@ from app.models.emotion import (
 from app.services.llm.base import LLMProvider
 from app.services.llm.voice_mapping import get_voice_for_intention
 
+if TYPE_CHECKING:
+    from app.experience_os.composer import ComposedPrompt
+
 logger = get_logger(__name__)
+
+_prompt_service = DefaultPromptConstructionService()
 
 SYSTEM_PROMPT = """You are Echo, a warm AI voice companion and emotion director.
 
@@ -91,6 +98,8 @@ class AnthropicProvider(LLMProvider):
         user_styles: list[str] | None = None,
         username: str = "there",
         intention: str | None = None,
+        brain_context: str | None = None,
+        composed_prompt: "ComposedPrompt | None" = None,
     ) -> EmotionProfile:
         logger.info(f"Analyzing prompt: {prompt!r}")
 
@@ -112,11 +121,12 @@ class AnthropicProvider(LLMProvider):
             f'Open with a warm greeting using "{username}" as instructed.'
         )
 
+        system = _prompt_service.build_system_prompt(brain_context, SYSTEM_PROMPT, composed_prompt)
         message = self._client.messages.create(
             model=self._model,
             max_tokens=self._max_tokens,
             temperature=self._temperature,
-            system=SYSTEM_PROMPT,
+            system=system,
             messages=[{"role": "user", "content": user_message}],
         )
 

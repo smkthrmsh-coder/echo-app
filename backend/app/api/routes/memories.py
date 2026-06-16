@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.core.logging import get_logger
 from app.db.database import get_db
-from app.db.models import Memory
+from app.db.models import Memory, User
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -41,8 +42,13 @@ def _mem_to_out(mem: Memory) -> MemoryOut:
 
 
 @router.post("/memories", response_model=MemoryOut, tags=["memory"])
-def create_memory(request: CreateMemoryRequest, db: Session = Depends(get_db)) -> MemoryOut:
+def create_memory(
+    request: CreateMemoryRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MemoryOut:
     mem = Memory(
+        user_id=current_user.id,
         title=request.title,
         content=request.content,
         category=request.category,
@@ -55,14 +61,26 @@ def create_memory(request: CreateMemoryRequest, db: Session = Depends(get_db)) -
 
 
 @router.get("/memories", response_model=list[MemoryOut], tags=["memory"])
-def list_memories(db: Session = Depends(get_db)) -> list[MemoryOut]:
-    mems = db.query(Memory).order_by(Memory.created_at.desc()).all()
+def list_memories(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[MemoryOut]:
+    mems = (
+        db.query(Memory)
+        .filter(Memory.user_id == current_user.id)
+        .order_by(Memory.created_at.desc())
+        .all()
+    )
     return [_mem_to_out(m) for m in mems]
 
 
 @router.delete("/memories/{memory_id}", tags=["memory"])
-def delete_memory(memory_id: str, db: Session = Depends(get_db)) -> dict:
-    mem = db.query(Memory).filter(Memory.id == memory_id).first()
+def delete_memory(
+    memory_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    mem = db.query(Memory).filter(Memory.id == memory_id, Memory.user_id == current_user.id).first()
     if not mem:
         raise HTTPException(status_code=404, detail="Memory not found")
     db.delete(mem)
