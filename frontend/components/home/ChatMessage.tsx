@@ -169,16 +169,6 @@ export function ChatMessage({
           border: "1px solid rgba(63,63,70,0.5)",
         }}
       >
-        {/* Tone chip */}
-        {message.tone && (
-          <div className="flex items-center gap-1.5 mb-2.5">
-            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accentColor }} />
-            <span className="text-[10px] font-medium tracking-wide uppercase" style={{ color: accentColor, opacity: 0.9 }}>
-              {message.tone}
-            </span>
-          </div>
-        )}
-
         {/* Transcript — broken into paragraphs for breathing room */}
         {cleanDisplay(message.content)
           .split(/(?<=\.) +(?=[A-Z"])/)

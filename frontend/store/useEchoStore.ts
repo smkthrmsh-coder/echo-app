@@ -148,6 +148,8 @@ export const useEchoStore = create<EchoStore>()(
             displayName: resp.user.display_name || resp.user.email.split("@")[0],
             userId: resp.user.id,
             authToken: resp.access_token,
+            voicePreference: "auto",
+            communicationStylePreference: "auto",
           });
           return true;
         } catch {
@@ -166,6 +168,8 @@ export const useEchoStore = create<EchoStore>()(
             displayName: resp.user.display_name || resp.user.email.split("@")[0],
             userId: resp.user.id,
             authToken: resp.access_token,
+            voicePreference: "auto",
+            communicationStylePreference: "auto",
           });
           return true;
         } catch {
@@ -182,6 +186,8 @@ export const useEchoStore = create<EchoStore>()(
           displayName: displayName || "there",
           userId: userId ?? null,
           authToken: token,
+          voicePreference: "auto",
+          communicationStylePreference: "auto",
         });
       },
 
@@ -200,6 +206,8 @@ export const useEchoStore = create<EchoStore>()(
           authToken: null,
           userId: null,
           displayName: "there",
+          voicePreference: "auto",
+          communicationStylePreference: "auto",
         });
       },
 

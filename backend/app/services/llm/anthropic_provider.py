@@ -6,6 +6,7 @@ import anthropic
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.experience_os.blueprint_engine import get_engine as get_blueprint_engine
 from app.experience_os.services.prompt_service import DefaultPromptConstructionService
 from app.models.emotion import (
     EmotionalTone,
@@ -42,7 +43,6 @@ You MUST respond with valid JSON only. No markdown, no explanation outside the J
 JSON schema:
 {
   "experience_title": "string — evocative title (3-6 words)",
-  "tone": "one of: energetic | calm | fierce | comforting | melancholic | playful | mysterious | romantic | anxious | hopeful",
   "narration_style": "one of: coach | narrator | whisper | storyteller | friend | guide",
   "pacing": "one of: fast | medium | slow | very_slow",
   "gender_preference": "male | female | null",
@@ -81,6 +81,17 @@ def _clean_script(text: str) -> str:
     text = re.sub(r'`([^`]+)`', r'\1', text)
     text = re.sub(r'^[-*•]\s+', '', text, flags=re.MULTILINE)
     return text.strip()
+
+
+def _tone_for_intention(intention: str | None) -> EmotionalTone:
+    """The chosen Experience is the single source of emotional identity — tone is
+    derived from its Blueprint, never independently classified per reply."""
+    blueprint = get_blueprint_engine().load(intention)
+    tone_str = (blueprint.background_music_strategy.tone_ambience_key or "comforting").lower()
+    try:
+        return EmotionalTone(tone_str)
+    except ValueError:
+        return EmotionalTone.COMFORTING
 
 
 class AnthropicProvider(LLMProvider):
@@ -137,11 +148,7 @@ class AnthropicProvider(LLMProvider):
         return self._build_profile(data, user_gender=user_gender, intention=intention)
 
     def _build_profile(self, data: dict, user_gender: str | None = None, intention: str | None = None) -> EmotionProfile:
-        tone_str = data.get("tone", "calm").lower()
-        try:
-            tone = EmotionalTone(tone_str)
-        except ValueError:
-            tone = EmotionalTone.CALM
+        tone = _tone_for_intention(intention)
 
         narration_str = data.get("narration_style", "narrator").lower()
         try:

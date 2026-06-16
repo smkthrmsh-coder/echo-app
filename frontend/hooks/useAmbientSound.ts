@@ -11,7 +11,7 @@ const INTENTION_HARMONICS: Record<string, number[]> = {
   focus:        [432, 528, 648],
   clarity:      [396, 528, 660],
   encouragement:[264, 330, 440],
-  motivation:   [330, 415, 495],
+  motivation:   [330, 495, 660],
   confidence:   [264, 396, 528],
   energy:       [330, 440, 550],
   other:        [220, 330, 440],

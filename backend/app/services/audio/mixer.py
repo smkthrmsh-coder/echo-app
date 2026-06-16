@@ -46,10 +46,17 @@ def mix_audio(
     voice = voice + voice_volume_db
     ambience = ambience + ambience_volume_db
 
-    # Loop ambience until it's at least as long as voice
+    # Loop ambience until it's at least as long as voice. A hard splice (e.g. `ambience * n`)
+    # leaves a waveform discontinuity at every loop boundary — inaudible on a soft drone/rain
+    # texture, but a sharp click/buzz on rhythmic, transient-heavy textures (e.g. "energetic").
+    # Crossfading each repeat removes that discontinuity regardless of texture.
     if len(ambience) < len(voice):
         repeats = (len(voice) // len(ambience)) + 2
-        ambience = ambience * repeats
+        crossfade_ms = min(800, max(50, len(ambience) // 4))
+        looped = ambience
+        for _ in range(repeats - 1):
+            looped = looped.append(ambience, crossfade=crossfade_ms)
+        ambience = looped
 
     # Trim ambience to exactly voice length + short tail for soft ending
     tail_ms = 400

@@ -12,6 +12,7 @@ import anthropic
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.experience_os.blueprint_engine import get_engine as get_blueprint_engine
 from app.experience_os.services.prompt_service import DefaultPromptConstructionService
 from app.models.emotion import EmotionalTone, EmotionProfile, NarrationStyle, Pacing, VoiceSettings
 from app.services.llm.pacing import apply_pacing_markup
@@ -47,7 +48,6 @@ End every reply with ONE brief, natural question that invites the user to keep s
 
 You MUST respond with valid JSON only:
 {
-  "tone": "one of: energetic | calm | fierce | comforting | melancholic | playful | mysterious | romantic | anxious | hopeful",
   "script": "string — your spoken reply (50-80 words, written to be heard, not read)"
 }"""
 
@@ -64,7 +64,6 @@ Style guide:
 
 You MUST respond with valid JSON only:
 {
-  "tone": "one of: energetic | calm | fierce | comforting | melancholic | playful | mysterious | romantic | anxious | hopeful",
   "script": "string — your spoken reply (50-80 words, written with deliberate emotional weight)"
 }"""
 
@@ -85,6 +84,17 @@ def _clean_script(text: str) -> str:
     text = re.sub(r'`([^`]+)`', r'\1', text)
     text = re.sub(r'^[-*•]\s+', '', text, flags=re.MULTILINE)
     return text.strip()
+
+
+def _tone_for_intention(intention: str | None) -> EmotionalTone:
+    """The chosen Experience is the single source of emotional identity — tone is
+    derived from its Blueprint, never independently classified per reply."""
+    blueprint = get_blueprint_engine().load(intention)
+    tone_str = (blueprint.background_music_strategy.tone_ambience_key or "comforting").lower()
+    try:
+        return EmotionalTone(tone_str)
+    except ValueError:
+        return EmotionalTone.COMFORTING
 
 
 class ChatProvider:
@@ -131,11 +141,7 @@ class ChatProvider:
         raw = response.content[0].text
         data = _extract_json(raw)
 
-        tone_str = data.get("tone", "comforting").lower()
-        try:
-            tone = EmotionalTone(tone_str)
-        except ValueError:
-            tone = EmotionalTone.COMFORTING
+        tone = _tone_for_intention(intention)
 
         # Voice selection: use locked voice for continuity; fall back to intention mapping
         _, _, iv = get_voice_for_intention(intention, gender)

@@ -29,7 +29,11 @@ def test_extract_json_invalid_raises():
 
 
 def test_build_profile_minimal(monkeypatch):
-    """_build_profile works with minimal data, falling back gracefully."""
+    """_build_profile works with minimal data, falling back gracefully.
+
+    Tone is no longer read from the LLM's JSON — it's derived from the chosen
+    Experience's Blueprint, so a conflicting "tone" in `data` must be ignored.
+    """
     import anthropic
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test_key")
@@ -44,7 +48,7 @@ def test_build_profile_minimal(monkeypatch):
         anthropic.Anthropic = MagicMock(return_value=MagicMock())
         provider = AnthropicProvider()
         profile = provider._build_profile({
-            "tone": "energetic",
+            "tone": "melancholic",  # deliberately conflicting — must be ignored
             "narration_style": "coach",
             "pacing": "fast",
             "experience_title": "Test Experience",
@@ -57,9 +61,9 @@ def test_build_profile_minimal(monkeypatch):
             "music_category": "cinematic",
             "script": "Let's go!",
             "reasoning": "High energy required.",
-        })
+        }, intention="motivation")
         from app.models.emotion import EmotionalTone, NarrationStyle, Pacing
-        assert profile.tone == EmotionalTone.ENERGETIC
+        assert profile.tone == EmotionalTone.ENERGETIC  # motivation's Blueprint tone, not data["tone"]
         assert profile.pacing == Pacing.FAST
         assert profile.narration_style == NarrationStyle.COACH
         assert profile.script == "Let's go!"
@@ -69,8 +73,8 @@ def test_build_profile_minimal(monkeypatch):
         anthropic.Anthropic = original_client
 
 
-def test_build_profile_unknown_tone_fallback(monkeypatch):
-    """Unknown tone values fall back to CALM."""
+def test_build_profile_unknown_intention_falls_back_to_comforting(monkeypatch):
+    """An intention with no matching Blueprint (or none at all) falls back to COMFORTING."""
     from unittest.mock import MagicMock
 
     import anthropic
@@ -81,9 +85,9 @@ def test_build_profile_unknown_tone_fallback(monkeypatch):
         anthropic.Anthropic = MagicMock(return_value=MagicMock())
         from app.services.llm.anthropic_provider import AnthropicProvider
         provider = AnthropicProvider()
-        profile = provider._build_profile({"tone": "TOTALLY_UNKNOWN"})
+        profile = provider._build_profile({}, intention="not-a-real-intention")
         from app.models.emotion import EmotionalTone
-        assert profile.tone == EmotionalTone.CALM
+        assert profile.tone == EmotionalTone.COMFORTING
     finally:
         anthropic.Anthropic = original
 
