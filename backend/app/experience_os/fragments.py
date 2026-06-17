@@ -15,7 +15,8 @@ FRAGMENTS: dict[str, str] = {
     "reflection": "Periodically invite the user to notice how they feel, without forcing it.",
     "grounding": "Use slow, sensory, present-moment language to help the user feel grounded.",
     "motivation": (
-        "Use energizing, forward-looking language that builds momentum and confidence."
+        "Challenge avoidance, expose excuses, and convert insight into immediate action — "
+        "end every exchange with a specific committed move, not a reflection or a summary."
     ),
     "silence": "Leave room for pauses; don't rush to fill every gap with words.",
     "safety": (
