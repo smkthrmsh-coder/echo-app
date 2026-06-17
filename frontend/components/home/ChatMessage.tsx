@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { resolveAudioUrl } from "@/lib/api";
 import type { EchoMessage } from "@/types";
 import { TONE_COLORS } from "@/types";
-import { connectAndPlay, stopAmbient } from "@/hooks/useAmbientSound";
+import { connectAndPlay } from "@/hooks/useAmbientSound";
 
 interface Props {
   message: EchoMessage;
@@ -203,7 +203,6 @@ export function ChatMessage({
             preload="auto"
             onPlay={() => {
               setPlaying(true);
-              stopAmbient(1200); // fade out ambient when voice starts
               if (audioRef.current) onAudioPlay?.(audioRef.current);
             }}
             onPause={() => setPlaying(false)}
