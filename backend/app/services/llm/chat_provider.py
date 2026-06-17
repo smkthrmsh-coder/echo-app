@@ -117,6 +117,7 @@ class ChatProvider:
         brain_context: str | None = None,
         composed_prompt: "ComposedPrompt | None" = None,
         pause_behaviour_enabled: bool = False,
+        speech_rate_override: float | None = None,
     ) -> EmotionProfile:
         style_str = ", ".join(speaking_styles) if speaking_styles else "warm and present"
         energy_desc = ["very gentle", "gentle", "balanced", "energetic", "very energetic"][energy_level - 1]
@@ -147,14 +148,16 @@ class ChatProvider:
         _, _, iv = get_voice_for_intention(intention, gender)
         effective_voice_id = locked_voice_id if locked_voice_id else iv.male_id if gender == "male" else iv.female_id
 
+        effective_rate = speech_rate_override if speech_rate_override is not None else iv.speech_rate
         if emotional_mode:
-            vs = VoiceSettings(stability=0.20, similarity_boost=0.85, style=0.90, use_speaker_boost=True)
+            vs = VoiceSettings(stability=0.20, similarity_boost=0.85, style=0.90, use_speaker_boost=True, speech_rate=effective_rate)
         else:
             vs = VoiceSettings(
                 stability=iv.stability,
                 similarity_boost=iv.similarity_boost,
                 style=iv.style,
                 use_speaker_boost=True,
+                speech_rate=effective_rate,
             )
 
         clean = _clean_script(data.get("script", "I'm here with you."))

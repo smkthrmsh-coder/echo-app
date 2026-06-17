@@ -110,6 +110,7 @@ async def create_conversation(
                 gender=request.gender or None,
                 speaking_styles=request.speaking_styles or None,
                 username=current_user.display_name or request.username or "there",
+                speech_rate_override=request.speech_rate_override,
             )
             profile, audio_path, duration = (
                 experience.profile, experience.audio_path, experience.duration_seconds
@@ -128,6 +129,7 @@ async def create_conversation(
                 username=current_user.display_name or request.username or "there",
                 intention=intention,
                 brain_context=brain_context or None,
+                speech_rate_override=request.speech_rate_override,
             )
     except Exception as exc:
         logger.exception("Pipeline failed for new conversation")
@@ -345,6 +347,7 @@ async def send_message(
                 locked_voice_id=conv.voice_id or None,
                 locked_voice_name=conv.voice_name or None,
                 conversation_id=conv.id,
+                speech_rate_override=request.speech_rate_override,
             )
             profile, audio_path, duration = (
                 experience.profile, experience.audio_path, experience.duration_seconds
@@ -367,6 +370,7 @@ async def send_message(
                 locked_voice_name=conv.voice_name or None,
                 intention=intention,
                 brain_context=brain_context or None,
+                speech_rate_override=request.speech_rate_override,
             )
     except Exception as exc:
         logger.exception("Chat pipeline failed")

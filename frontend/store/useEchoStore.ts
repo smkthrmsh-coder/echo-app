@@ -78,6 +78,8 @@ interface EchoStore {
   setVoicePreference: (p: VoicePreference) => void;
   communicationStylePreference: CommunicationStylePreference;
   setCommunicationStylePreference: (s: CommunicationStylePreference) => void;
+  speechRateOverride: number | null;
+  setSpeechRateOverride: (rate: number | null) => void;
 
   conversationId: string | null;
   conversationTitle: string;
@@ -222,7 +224,7 @@ export const useEchoStore = create<EchoStore>()(
       dismissWelcome: () => set({ homeMode: "creation" }),
 
       startGeneration: async () => {
-        const { selectedIntention, customIntention, voicePreference, communicationStylePreference, displayName } = get();
+        const { selectedIntention, customIntention, voicePreference, communicationStylePreference, displayName, speechRateOverride } = get();
         set({ isCreating: true, createError: null });
 
         const intention = INTENTIONS.find((i) => i.id === selectedIntention);
@@ -241,6 +243,7 @@ export const useEchoStore = create<EchoStore>()(
             gender: voicePreference !== "auto" ? voicePreference : undefined,
             emotion: selectedIntention ?? undefined,
             username: displayName,
+            speech_rate_override: speechRateOverride ?? undefined,
           });
           set({
             conversationId: conv.id,
@@ -269,6 +272,9 @@ export const useEchoStore = create<EchoStore>()(
           messages: [],
         }),
 
+      speechRateOverride: null,
+      setSpeechRateOverride: (rate) => set({ speechRateOverride: rate }),
+
       voicePreference: "auto",
       setVoicePreference: (p) => {
         set({ voicePreference: p });
@@ -291,7 +297,7 @@ export const useEchoStore = create<EchoStore>()(
       recordingForChat: false,
 
       sendMessage: async (content) => {
-        const { conversationId } = get();
+        const { conversationId, speechRateOverride } = get();
         if (!conversationId) return;
         set({ isSending: true, sendError: null });
         const userMsg: EchoMessage = {
@@ -305,7 +311,7 @@ export const useEchoStore = create<EchoStore>()(
         };
         set((s) => ({ messages: [...s.messages, userMsg] }));
         try {
-          const reply = await apiSendMessage(conversationId, content, true);
+          const reply = await apiSendMessage(conversationId, content, true, speechRateOverride ?? undefined);
           set((s) => ({ messages: [...s.messages, reply], isSending: false }));
         } catch (e) {
           const raw = e instanceof Error ? e.message : "Failed to send";
@@ -488,6 +494,7 @@ export const useEchoStore = create<EchoStore>()(
       partialize: (state) => ({
         voicePreference: state.voicePreference,
         communicationStylePreference: state.communicationStylePreference,
+        speechRateOverride: state.speechRateOverride,
         authToken: state.authToken,
         isLoggedIn: state.isLoggedIn,
         displayName: state.displayName,

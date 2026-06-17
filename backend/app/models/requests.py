@@ -53,6 +53,7 @@ class CreateConversationRequest(BaseModel):
     celebrity_voice_id: str | None = None
     title: str | None = None
     username: str = "there"
+    speech_rate_override: float | None = None
 
 
 class MessageOut(BaseModel):
@@ -96,6 +97,7 @@ class SendMessageRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=1000)
     emotional_mode: bool = Field(default=False)
     celebrity_voice_id: str | None = None
+    speech_rate_override: float | None = None
 
 
 class UpdateConversationRequest(BaseModel):

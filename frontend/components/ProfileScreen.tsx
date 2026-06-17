@@ -29,6 +29,8 @@ export function ProfileScreen() {
     setVoicePreference,
     communicationStylePreference,
     setCommunicationStylePreference,
+    speechRateOverride,
+    setSpeechRateOverride,
   } = useEchoStore(
     useShallow((s) => ({
       displayName: s.displayName,
@@ -39,6 +41,8 @@ export function ProfileScreen() {
       setVoicePreference: s.setVoicePreference,
       communicationStylePreference: s.communicationStylePreference,
       setCommunicationStylePreference: s.setCommunicationStylePreference,
+      speechRateOverride: s.speechRateOverride,
+      setSpeechRateOverride: s.setSpeechRateOverride,
     })),
   );
 
@@ -190,6 +194,47 @@ export function ProfileScreen() {
                 </div>
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Speech Speed */}
+        <div className="px-4 mt-5">
+          <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-3">Speech Speed</p>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[13px] font-medium text-zinc-300">Speed</span>
+              <div className="flex items-center gap-2">
+                {speechRateOverride !== null && (
+                  <button
+                    onClick={() => setSpeechRateOverride(null)}
+                    className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                  >
+                    Reset
+                  </button>
+                )}
+                <span className="text-[13px] font-semibold text-amber-400 tabular-nums min-w-[44px] text-right">
+                  {speechRateOverride !== null ? `${speechRateOverride.toFixed(2)}×` : "Auto"}
+                </span>
+              </div>
+            </div>
+            <input
+              type="range"
+              min="0.75"
+              max="1.40"
+              step="0.05"
+              value={speechRateOverride ?? 1.0}
+              onChange={(e) => setSpeechRateOverride(parseFloat(e.target.value))}
+              className="w-full accent-amber-500 cursor-pointer"
+            />
+            <div className="flex justify-between mt-1.5">
+              <span className="text-[10px] text-zinc-600">0.75× Slower</span>
+              <span className="text-[10px] text-zinc-600">Faster 1.40×</span>
+            </div>
+            <p className="text-[11px] text-zinc-600 mt-2.5 leading-relaxed">
+              {speechRateOverride !== null
+                ? "Applies to all experiences. Reset to let each experience set its own speed."
+                : "Each experience sets its own speed. Drag to override globally."}
+            </p>
           </div>
         </div>
 

@@ -40,6 +40,7 @@ async def run_chat_pipeline(
     brain_context: str | None = None,
     composed_prompt: "ComposedPrompt | None" = None,
     pause_behaviour_enabled: bool = False,
+    speech_rate_override: float | None = None,
 ) -> tuple[EmotionProfile, str, float]:
     """
     Chat reply pipeline: message → EmotionProfile + voice audio.
@@ -68,6 +69,7 @@ async def run_chat_pipeline(
         brain_context=brain_context,
         composed_prompt=composed_prompt,
         pause_behaviour_enabled=pause_behaviour_enabled,
+        speech_rate_override=speech_rate_override,
     )
     t1 = time.monotonic()
     logger.info(

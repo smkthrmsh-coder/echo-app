@@ -101,6 +101,7 @@ export async function createConversation(data: {
   emotion?: string | null;
   title?: string;
   username?: string;
+  speech_rate_override?: number;
 }): Promise<ConversationDetail> {
   return apiFetch<ConversationDetail>("/api/conversations", {
     method: "POST",
@@ -139,10 +140,15 @@ export async function sendMessage(
   conversationId: string,
   content: string,
   emotionalMode: boolean = false,
+  speechRateOverride?: number,
 ): Promise<EchoMessage> {
   return apiFetch<EchoMessage>(`/api/conversations/${conversationId}/messages`, {
     method: "POST",
-    body: JSON.stringify({ content, emotional_mode: emotionalMode }),
+    body: JSON.stringify({
+      content,
+      emotional_mode: emotionalMode,
+      ...(speechRateOverride !== undefined ? { speech_rate_override: speechRateOverride } : {}),
+    }),
   });
 }
 

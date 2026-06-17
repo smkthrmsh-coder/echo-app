@@ -161,6 +161,7 @@ class BlueprintRuntime:
         gender: str | None = None,
         speaking_styles: list[str] | None = None,
         username: str = "there",
+        speech_rate_override: float | None = None,
     ) -> Experience:
         ctx = self.build_context(
             user_id,
@@ -179,6 +180,7 @@ class BlueprintRuntime:
             brain_context=ctx.brain_context or None,
             composed_prompt=ctx.composed_prompt,
             pause_behaviour_enabled=ctx.blueprint.pause_behaviour.enabled,
+            speech_rate_override=speech_rate_override,
         )
         self._finish(ctx, audio_path, duration)
         return Experience(
@@ -199,6 +201,7 @@ class BlueprintRuntime:
         locked_voice_id: str | None = None,
         locked_voice_name: str | None = None,
         conversation_id: str | None = None,
+        speech_rate_override: float | None = None,
     ) -> Experience:
         ctx = self.build_context(
             user_id,
@@ -223,6 +226,7 @@ class BlueprintRuntime:
             brain_context=ctx.brain_context or None,
             composed_prompt=ctx.composed_prompt,
             pause_behaviour_enabled=ctx.blueprint.pause_behaviour.enabled,
+            speech_rate_override=speech_rate_override,
         )
         self._finish(ctx, audio_path, duration)
         return Experience(

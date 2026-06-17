@@ -113,6 +113,7 @@ class AnthropicProvider(LLMProvider):
         intention: str | None = None,
         brain_context: str | None = None,
         composed_prompt: "ComposedPrompt | None" = None,
+        speech_rate_override: float | None = None,
     ) -> EmotionProfile:
         logger.info(f"Analyzing prompt: {prompt!r}")
 
@@ -147,9 +148,9 @@ class AnthropicProvider(LLMProvider):
         logger.debug(f"LLM raw response: {raw[:200]}...")
 
         data = _extract_json(raw)
-        return self._build_profile(data, user_gender=user_gender, intention=intention)
+        return self._build_profile(data, user_gender=user_gender, intention=intention, speech_rate_override=speech_rate_override)
 
-    def _build_profile(self, data: dict, user_gender: str | None = None, intention: str | None = None) -> EmotionProfile:
+    def _build_profile(self, data: dict, user_gender: str | None = None, intention: str | None = None, speech_rate_override: float | None = None) -> EmotionProfile:
         tone = _tone_for_intention(intention)
 
         narration_str = data.get("narration_style", "narrator").lower()
@@ -175,7 +176,7 @@ class AnthropicProvider(LLMProvider):
             similarity_boost=clamp(data.get("similarity_boost", iv.similarity_boost)),
             style=clamp(data.get("style", iv.style)),
             use_speaker_boost=bool(data.get("use_speaker_boost", True)),
-            speech_rate=iv.speech_rate,  # deterministic per-intention, not LLM-controlled
+            speech_rate=speech_rate_override if speech_rate_override is not None else iv.speech_rate,
         )
 
         ambience_vol = float(data.get("ambience_volume_db", -18.0))

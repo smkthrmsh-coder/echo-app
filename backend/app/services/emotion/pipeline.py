@@ -39,6 +39,7 @@ async def run_pipeline(
     brain_context: str | None = None,
     composed_prompt: "ComposedPrompt | None" = None,
     pause_behaviour_enabled: bool = False,
+    speech_rate_override: float | None = None,
 ) -> tuple[EmotionProfile, str, float]:
     """
     Full pipeline: prompt → EmotionProfile + voice audio file.
@@ -63,6 +64,7 @@ async def run_pipeline(
         intention=intention,
         brain_context=brain_context,
         composed_prompt=composed_prompt,
+        speech_rate_override=speech_rate_override,
     )
     t1 = time.monotonic()
     logger.info(
