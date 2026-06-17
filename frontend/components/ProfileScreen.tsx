@@ -21,6 +21,7 @@ const STYLE_OPTIONS: { value: CommunicationStylePreference; label: string; desc:
 
 export function ProfileScreen() {
   const {
+    displayName,
     memories,
     loadMemories,
     logout,
@@ -30,6 +31,7 @@ export function ProfileScreen() {
     setCommunicationStylePreference,
   } = useEchoStore(
     useShallow((s) => ({
+      displayName: s.displayName,
       memories: s.memories,
       loadMemories: s.loadMemories,
       logout: s.logout,
@@ -76,10 +78,10 @@ export function ProfileScreen() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center">
-              <span className="text-zinc-300 text-sm font-bold">S</span>
+              <span className="text-zinc-300 text-sm font-bold">{displayName.charAt(0).toUpperCase()}</span>
             </div>
             <div>
-              <p className="text-[14px] font-semibold text-white">Samy</p>
+              <p className="text-[14px] font-semibold text-white">{displayName}</p>
               <p className="text-xs text-zinc-500">Free plan</p>
             </div>
           </div>

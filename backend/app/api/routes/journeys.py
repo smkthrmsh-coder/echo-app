@@ -595,7 +595,13 @@ def get_journey_recommendations(db: Session = Depends(get_db), current_user: Use
 
     from app.db.models import Conversation
 
-    recent = db.query(Conversation).order_by(Conversation.created_at.desc()).limit(10).all()
+    recent = (
+        db.query(Conversation)
+        .filter(Conversation.user_id == current_user.id)
+        .order_by(Conversation.created_at.desc())
+        .limit(10)
+        .all()
+    )
     emotions = [c.emotion for c in recent if c.emotion]
 
     counts: Counter = Counter()
@@ -604,10 +610,7 @@ def get_journey_recommendations(db: Session = Depends(get_db), current_user: Use
             counts[slug] += 1
 
     if not counts:
-        return [
-            {"slug": "anxiety-relief", "reason": "Popular for finding daily calm"},
-            {"slug": "self-confidence", "reason": "Build lasting self-belief"},
-        ]
+        return []
 
     top = counts.most_common(2)
     return [{"slug": slug, "reason": _SLUG_REASONS.get(slug, "Recommended for you")} for slug, _ in top]
