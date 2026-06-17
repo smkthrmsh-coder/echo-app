@@ -37,6 +37,7 @@ class VoiceSettings:
     similarity_boost: float = 0.75
     style: float = 0.5
     use_speaker_boost: bool = True
+    speech_rate: float = 1.0  # ElevenLabs speed: 0.7 (slow) → 1.3 (fast)
 
 
 @dataclass

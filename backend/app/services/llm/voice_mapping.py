@@ -12,9 +12,10 @@ class IntentionVoice:
     male_id: str
     female_id: str
     # ElevenLabs voice settings tuned for the emotional context
-    stability: float
+    stability: float        # lower = more expressive variation; higher = more consistent
     similarity_boost: float
-    style: float
+    style: float            # higher = more dramatic, conviction-driven delivery
+    speech_rate: float = 1.0  # ElevenLabs speed multiplier: 0.7 (slowest) → 1.3 (fastest)
 
 
 # Intention key → voice IDs and delivery settings
@@ -23,52 +24,52 @@ INTENTION_VOICE_MAP: dict[str, IntentionVoice] = {
     "peace": IntentionVoice(
         male_id="NcJuO1kJ19MefFnxN1Ls",
         female_id="d5QfMetkf8n1aenR1dOq",
-        stability=0.65, similarity_boost=0.75, style=0.20,
+        stability=0.65, similarity_boost=0.75, style=0.20, speech_rate=0.88,
     ),
     "confidence": IntentionVoice(
         male_id="Pcfg2Zc6kmNWQ9ji3J5F",
         female_id="YgzytRZyVmEux6PCtJYB",
-        stability=0.40, similarity_boost=0.75, style=0.65,
+        stability=0.32, similarity_boost=0.75, style=0.78, speech_rate=1.15,
     ),
     "motivation": IntentionVoice(
         male_id="5Xx8kcjjamcaKohQT5wv",
         female_id="cvpTJfe9LINpHIOmB2Hp",
-        stability=0.38, similarity_boost=0.75, style=0.70,
+        stability=0.28, similarity_boost=0.75, style=0.82, speech_rate=1.20,
     ),
     "comfort": IntentionVoice(
         male_id="vSjOBQp24DUB2COr2xI9",
         female_id="WyFXw4PzMbRnp8iLMJwY",
-        stability=0.52, similarity_boost=0.78, style=0.45,
+        stability=0.52, similarity_boost=0.78, style=0.45, speech_rate=0.92,
     ),
     "focus": IntentionVoice(
         male_id="3eeW5idatACfmf9haBcH",
         female_id="OYTbf65OHHFELVut7v2H",
-        stability=0.55, similarity_boost=0.75, style=0.35,
+        stability=0.55, similarity_boost=0.75, style=0.35, speech_rate=1.02,
     ),
     "sleep": IntentionVoice(
         male_id="KH1SQLVulwP6uG4O3nmT",
         female_id="tdOAypddKoCTtFZLeKO2",
-        stability=0.68, similarity_boost=0.75, style=0.18,
+        stability=0.68, similarity_boost=0.75, style=0.18, speech_rate=0.80,
     ),
     "energy": IntentionVoice(
         male_id="UgBBYS2sOqTuMpoF3BR0",
         female_id="cvpTJfe9LINpHIOmB2Hp",
-        stability=0.35, similarity_boost=0.75, style=0.72,
+        stability=0.28, similarity_boost=0.75, style=0.82, speech_rate=1.22,
     ),
     "clarity": IntentionVoice(
         male_id="ZoiZ8fuDWlnAcwPXaVeq",
         female_id="xYa75LlayhWHCRl1yJSH",
-        stability=0.55, similarity_boost=0.75, style=0.32,
+        stability=0.55, similarity_boost=0.75, style=0.32, speech_rate=1.02,
     ),
     "encouragement": IntentionVoice(
         male_id="inGcvmoPgbvKUk9uCvHu",
         female_id="y2TOWGCXSYEgBanvKsYJ",
-        stability=0.42, similarity_boost=0.75, style=0.62,
+        stability=0.42, similarity_boost=0.75, style=0.62, speech_rate=1.08,
     ),
     "listen": IntentionVoice(
         male_id="EAFdcgh6sHQjl7oc0rRa",
         female_id="BNmqhlQbvg4uYNDVazX",
-        stability=0.55, similarity_boost=0.78, style=0.40,
+        stability=0.55, similarity_boost=0.78, style=0.40, speech_rate=1.0,
     ),
 }
 

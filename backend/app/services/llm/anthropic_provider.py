@@ -175,6 +175,7 @@ class AnthropicProvider(LLMProvider):
             similarity_boost=clamp(data.get("similarity_boost", iv.similarity_boost)),
             style=clamp(data.get("style", iv.style)),
             use_speaker_boost=bool(data.get("use_speaker_boost", True)),
+            speech_rate=iv.speech_rate,  # deterministic per-intention, not LLM-controlled
         )
 
         ambience_vol = float(data.get("ambience_volume_db", -18.0))

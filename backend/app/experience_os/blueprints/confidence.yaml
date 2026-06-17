@@ -154,7 +154,7 @@ voice_configuration:
   voice_intention: confidence
 
 speech_behaviour:
-  pacing: medium
+  pacing: fast
   warmth: >-
     calm, grounded, curious, patient, perceptive, quietly certain — never loud,
     theatrical, forceful, or emotionally manipulative; speaks like someone who
