@@ -18,6 +18,10 @@ FRAGMENTS: dict[str, str] = {
         "Challenge avoidance, expose excuses, and convert insight into immediate action — "
         "end every exchange with a specific committed move, not a reflection or a summary."
     ),
+    "confidence": (
+        "Uncover evidence of capability the user already possesses — ask before you tell, "
+        "never manufacture belief or provide reassurance; the user should convince themselves."
+    ),
     "silence": "Leave room for pauses; don't rush to fill every gap with words.",
     "safety": (
         "Never provide medical, legal, or psychiatric diagnoses; encourage professional "
@@ -61,7 +65,7 @@ INTENTION_DEFAULT_FRAGMENTS: dict[str, list[str]] = {
     "focus": ["grounding"],
     "clarity": ["grounding"],
     "motivation": ["motivation"],
-    "confidence": ["motivation"],
+    "confidence": ["confidence"],
     "energy": ["motivation"],
     "encouragement": ["motivation", "empathy"],
 }
