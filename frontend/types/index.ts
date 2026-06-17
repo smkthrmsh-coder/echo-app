@@ -121,8 +121,6 @@ export const INTENTIONS = [
   { id: "energy",        title: "Energy",              subtitle: "Recharge your day." },
   { id: "clarity",       title: "Clarity",             subtitle: "Untangle your thoughts." },
   { id: "encouragement", title: "Encouragement",       subtitle: "Keep moving forward." },
-  { id: "listen",        title: "Someone To Listen",   subtitle: "I'm here with you." },
-  { id: "other",         title: "Something Else",      subtitle: "Tell me in your own words." },
 ] as const;
 
 export type IntentionId = (typeof INTENTIONS)[number]["id"];

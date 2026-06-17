@@ -2,23 +2,24 @@
 
 import type { IntentionId } from "@/types";
 
-// Harmonic frequencies tuned per emotional intention
+// Each entry: [root, root+detune, root*2].
+// Two oscillators detuned by 1-4 Hz produce a gentle slow pulse (never buzz).
+// The third is the exact octave — 100% apart from the root, outside any critical band.
 const INTENTION_HARMONICS: Record<string, number[]> = {
-  peace:        [174, 285, 396],
-  comfort:      [220, 277, 330],
-  sleep:        [136, 204, 272],
-  listen:       [192, 256, 320],
-  focus:        [432, 528, 648],
-  clarity:      [396, 528, 660],
-  encouragement:[264, 330, 440],
-  motivation:   [330, 495, 660],
-  confidence:   [264, 396, 528],
-  energy:       [330, 440, 550],
-  other:        [220, 330, 440],
+  peace:        [174, 176, 348],   // 2 Hz pulse — serene
+  comfort:      [220, 222, 440],   // 2 Hz pulse — warm
+  sleep:        [136, 137, 272],   // 1 Hz pulse — slowest, deepest
+  focus:        [432, 434, 864],   // 2 Hz pulse — alert
+  clarity:      [264, 266, 528],   // 2 Hz pulse — clear
+  encouragement:[330, 332, 660],   // 2 Hz pulse — uplifting
+  motivation:   [396, 399, 792],   // 3 Hz pulse — drive
+  confidence:   [297, 300, 594],   // 3 Hz pulse — strong
+  energy:       [330, 334, 660],   // 4 Hz pulse — vibrant
+  other:        [220, 222, 440],   // fallback — same warm root as comfort
 };
 
 const INTENTION_GAIN: Record<string, number> = {
-  sleep: 0.018, peace: 0.016, comfort: 0.015, listen: 0.015,
+  sleep: 0.018, peace: 0.016, comfort: 0.015,
   focus: 0.012, clarity: 0.012, encouragement: 0.012,
   motivation: 0.010, confidence: 0.010, energy: 0.008,
   other: 0.012,

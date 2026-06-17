@@ -26,9 +26,7 @@ export function IntentionStep() {
     })),
   );
 
-  const canContinue =
-    selectedIntention !== null &&
-    (selectedIntention !== "other" || customIntention.trim().length >= 3);
+  const canContinue = selectedIntention !== null;
 
   function handleCardClick(id: IntentionId) {
     if (selectedIntention === id) return;
@@ -102,11 +100,7 @@ export function IntentionStep() {
                         autoFocus
                         value={customIntention}
                         onChange={(e) => setCustomIntention(e.target.value)}
-                        placeholder={
-                          intention.id === "other"
-                            ? "Describe what's going on..."
-                            : "Tell me a little about what's going on."
-                        }
+                        placeholder="Tell me a little about what's going on."
                         rows={3}
                         className="w-full bg-transparent text-sm text-white placeholder-zinc-600 resize-none focus:outline-none leading-relaxed"
                       />
