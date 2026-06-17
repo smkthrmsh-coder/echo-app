@@ -139,7 +139,6 @@ class ElevenLabsTTSProvider(TTSProvider):
             similarity_boost=vs.similarity_boost,
             style=vs.style,
             use_speaker_boost=vs.use_speaker_boost,
-            speed=vs.speech_rate,
         )
 
         loop = asyncio.get_event_loop()

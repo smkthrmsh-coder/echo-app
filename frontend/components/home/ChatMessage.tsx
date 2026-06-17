@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useShallow } from "zustand/react/shallow";
 import { resolveAudioUrl } from "@/lib/api";
 import type { EchoMessage } from "@/types";
 import { TONE_COLORS } from "@/types";
 import { connectAndPlay } from "@/hooks/useAmbientSound";
+import { useEchoStore } from "@/store/useEchoStore";
 
 interface Props {
   message: EchoMessage;
@@ -76,18 +78,30 @@ export function ChatMessage({
   isLastAssistant = false,
   experienceTitle,
 }: Props) {
+  const { speechRateOverride, setSpeechRateOverride } = useEchoStore(
+    useShallow((s) => ({ speechRateOverride: s.speechRateOverride, setSpeechRateOverride: s.setSpeechRateOverride }))
+  );
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(message.duration_seconds ?? 0);
-  const [speedIdx, setSpeedIdx] = useState(1);
   const [audioError, setAudioError] = useState(false);
   const [ended, setEnded] = useState(false);
+
+  const currentRate = speechRateOverride ?? 1.0;
 
   const isUser = message.role === "user";
   const audioUrl = message.audio_url ? resolveAudioUrl(message.audio_url) : null;
   const accentColor = TONE_COLORS[message.tone] ?? "#d97706";
+
+  // Keep playbackRate in sync with the store preference (including while playing)
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.playbackRate = currentRate;
+    }
+  }, [currentRate]);
 
   // Auto-play via AudioContext (bypasses iOS autoplay restriction)
   useEffect(() => {
@@ -95,11 +109,9 @@ export function ChatMessage({
     const audio = audioRef.current;
 
     const tryPlay = () => {
-      // connectAndPlay awaits ctx.resume() then calls play() — works on iOS
-      connectAndPlay(audio).then((started) => {
+      connectAndPlay(audio, currentRate).then((started) => {
         if (!started) {
-          // AudioContext not available (e.g. first load before any gesture)
-          // Try native play as last resort — will work on desktop, may fail on iOS
+          audio.playbackRate = currentRate;
           audio.play().catch(() => {});
         }
       });
@@ -111,13 +123,8 @@ export function ChatMessage({
       audio.addEventListener("canplay", tryPlay, { once: true });
       return () => audio.removeEventListener("canplay", tryPlay);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPlay, audioUrl]);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.playbackRate = SPEEDS[speedIdx];
-    }
-  }, [speedIdx]);
 
   function togglePlay() {
     if (!audioRef.current) return;
@@ -128,8 +135,16 @@ export function ChatMessage({
   function replay() {
     if (!audioRef.current) return;
     audioRef.current.currentTime = 0;
+    audioRef.current.playbackRate = currentRate;
     setEnded(false);
     audioRef.current.play().catch(() => {});
+  }
+
+  function cycleSpeed() {
+    const nextIdx = (SPEEDS.indexOf(currentRate as typeof SPEEDS[number]) + 1) % SPEEDS.length;
+    const next = SPEEDS[nextIdx < 0 ? 1 : nextIdx] ?? 1.0;
+    setSpeechRateOverride(next);
+    if (audioRef.current) audioRef.current.playbackRate = next;
   }
 
   function seek(e: React.MouseEvent<HTMLDivElement>) {
@@ -265,10 +280,10 @@ export function ChatMessage({
               <ReplayIcon />
             </button>
             <button
-              onClick={() => setSpeedIdx((i) => (i + 1) % SPEEDS.length)}
+              onClick={cycleSpeed}
               className="text-[11px] text-zinc-600 hover:text-zinc-400 transition-colors tabular-nums font-mono"
             >
-              {SPEEDS[speedIdx]}×
+              {currentRate.toFixed(2)}×
             </button>
           </div>
         </div>

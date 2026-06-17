@@ -27,9 +27,10 @@ export function unlockAudio(): void {
 
 /**
  * Connect an <audio> element to the shared AudioContext, resume it, then play.
+ * playbackRate is set before play() so it takes effect from the first frame.
  * Returns true if playback started successfully.
  */
-export async function connectAndPlay(el: HTMLAudioElement): Promise<boolean> {
+export async function connectAndPlay(el: HTMLAudioElement, playbackRate = 1.0): Promise<boolean> {
   if (typeof window === "undefined") return false;
   try {
     const ctx = getOrCreateContext();
@@ -40,6 +41,7 @@ export async function connectAndPlay(el: HTMLAudioElement): Promise<boolean> {
       source.connect(ctx.destination);
       _connectedElements.add(el);
     }
+    el.playbackRate = playbackRate;
     await el.play();
     return true;
   } catch {
