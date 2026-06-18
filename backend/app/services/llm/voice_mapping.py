@@ -32,7 +32,7 @@ INTENTION_VOICE_MAP: dict[str, IntentionVoice] = {
         stability=0.32, similarity_boost=0.75, style=0.78, speech_rate=1.15,
     ),
     "motivation": IntentionVoice(
-        male_id="5Xx8kcjjamcaKohQT5wv",
+        male_id="XALcFq0WF65uNKzmpcZW",
         female_id="cvpTJfe9LINpHIOmB2Hp",
         stability=0.28, similarity_boost=0.75, style=0.82, speech_rate=1.20,
     ),
